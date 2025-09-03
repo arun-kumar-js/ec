@@ -108,7 +108,7 @@ const HomeScreen = () => {
           marginHorizontal: wp('3%'),
         }}
       >
-                <TouchableOpacity
+        <TouchableOpacity
           onPress={() => removeFromCart(item)}
           style={{
             width: wp('8%'),
@@ -128,7 +128,7 @@ const HomeScreen = () => {
             }}
           />
         </TouchableOpacity>
-        
+
         <Text
           style={{
             color: '#333',
@@ -140,7 +140,7 @@ const HomeScreen = () => {
         >
           {quantity}
         </Text>
-        
+
         <TouchableOpacity
           onPress={() => addToCart(item)}
           style={{
@@ -181,14 +181,11 @@ const HomeScreen = () => {
       formData.append('accesskey', API_ACCESS_KEY);
       const response = await axios.post(HOMEPAGE_ENDPOINT, formData);
       if (response.data && response.data.error === 'false') {
-        console.log('Fetched homepage data:', response.data.data);
         return response.data.data;
       } else {
-        console.error('API error:', response.data);
         return null;
       }
     } catch (error) {
-      console.error('Error fetching homepage data:', error);
       return null;
     }
   };
@@ -236,224 +233,272 @@ const HomeScreen = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ flexGrow: 1 }}
       >
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={{ flexDirection: 'row', gap: wp('3.5%') }}>
-          <TouchableOpacity onPress={() => {
-            console.log('Menu button pressed, opening drawer');
-            alert('Opening drawer...');
-            setDrawerVisible(true);
-          }} activeOpacity={1}>
-            <Icon name="menu" size={wp('6%')} color="#fff" />
-          </TouchableOpacity>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: wp('2.5%') }}>
-          <Image
-            source={require('../../Assets/Images/Edit.png')}
-            style={{ width: wp('4%'), height: hp('2%'), tintColor: '#fff' }}
-          />
-          <Text style={styles.locationText}>Choose Location </Text>
-        </View>
-        <TouchableOpacity onPress={() => navigation.navigate('Cart')} activeOpacity={1}>
-          <Icon name="cart-outline" size={wp('6%')} color="#fff" />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          onPress={() => {
-            console.log('Test drawer button pressed');
-            alert('Test button pressed!');
-            setDrawerVisible(!drawerVisible);
-          }} 
-          style={{ backgroundColor: 'yellow', padding: 10, marginLeft: 10 }}
-          activeOpacity={1}
-        >
-          <Text style={{ color: 'black', fontSize: 12 }}>Test</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Search Bar */}
-      <View style={styles.searchWrapper}>
-        <View style={styles.searchContainer}>
-          <Icon name="search" size={wp('5%')} color="#888" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search products.."
-            placeholderTextColor="#888"
-          />
-        </View>
-      </View>
-
-             {/* Banner */}
-       {data?.slider?.length > 0 && (
-         <ScrollView
-           horizontal
-           showsHorizontalScrollIndicator={false}
-           contentContainerStyle={{ paddingHorizontal: wp('1.2%') }}
-         >
-           {data.slider.map((item, index) => (
-             <Image
-               key={index}
-               source={{ uri: item.image }}
-               style={styles.banner}
-               resizeMode="cover"
-             />
-           ))}
-         </ScrollView>
-       )}
-
-      {/* Promotion Section */}
-      {data?.section
-        ?.filter(item => item.title === 'PROMOTION' && item.place === 'top')
-        .map(promo => (
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={{ flexDirection: 'row', gap: wp('3.5%') }}>
+            <TouchableOpacity
+              onPress={() => {
+                setDrawerVisible(true);
+              }}
+              activeOpacity={1}
+            >
+              <Icon name="menu" size={wp('6%')} color="#fff" />
+            </TouchableOpacity>
+          </View>
           <View
-            key={promo.id}
             style={{
-              marginHorizontal: wp('4%'),
-              marginVertical: hp('1%'),
-              padding: wp('3%'),
-              backgroundColor: promo.style === 'style_1' ? '#f9fbfcff' : '#f6f7f7ff',
-              borderRadius: wp('2%'),
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: wp('2.5%'),
             }}
           >
-                         <Text style={{ fontSize: wp('4%'), fontWeight: '600', marginBottom: hp('0.5%') }}>
-               {promo.title}
-             </Text>
-             {promo.products?.length > 0 && (
-               <ScrollView
-                 horizontal
-                 showsHorizontalScrollIndicator={false}
-                 contentContainerStyle={{ paddingHorizontal: wp('2%') }}
-               >
-                 {promo.products.map((item, idx) => (
-                   <TouchableOpacity
-                     key={idx}
-                     onPress={() => navigation.navigate('ProductDetails', { product: item })}
-                     activeOpacity={1}
-                   >
-                     <View
-                       style={{
-                         width: wp('40%'),
-                         marginRight: wp('3%'),
-                         backgroundColor: '#edececff',
-                         borderRadius: wp('2%'),
-                         overflow: 'hidden',
-                         elevation: 2,
-                       }}
-                     >
-                       <Image
-                         source={{ uri: item.image }}
-                         style={{ width: '100%', height: hp('20%'), resizeMode: 'cover' }}
-                       />
-                                               <Text style={{ padding: wp('2%'), fontWeight: '500' }} numberOfLines={1}>
+            <Image
+              source={require('../../Assets/Images/Edit.png')}
+              style={{ width: wp('4%'), height: hp('2%'), tintColor: '#fff' }}
+            />
+            <Text style={styles.locationText}>Choose Location </Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Cart')}
+            activeOpacity={1}
+          >
+            <Icon name="cart-outline" size={wp('6%')} color="#fff" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Search Bar */}
+        <View style={styles.searchWrapper}>
+          <View style={styles.searchContainer}>
+            <Icon
+              name="search"
+              size={wp('5%')}
+              color="#888"
+              style={styles.searchIcon}
+            />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search products.."
+              placeholderTextColor="#888"
+            />
+          </View>
+        </View>
+
+        {/* Banner */}
+        {data?.slider?.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: wp('1.2%') }}
+          >
+            {data.slider.map((item, index) => (
+              <Image
+                key={index}
+                source={{ uri: item.image }}
+                style={styles.banner}
+                resizeMode="cover"
+              />
+            ))}
+          </ScrollView>
+        )}
+
+        {/* Promotion Section */}
+        {data?.section
+          ?.filter(item => item.title === 'PROMOTION' && item.place === 'top')
+          .map(promo => (
+            <View
+              key={promo.id}
+              style={{
+                marginHorizontal: wp('4%'),
+                marginVertical: hp('1%'),
+                padding: wp('3%'),
+                backgroundColor:
+                  promo.style === 'style_1' ? '#f9fbfcff' : '#f6f7f7ff',
+                borderRadius: wp('2%'),
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: wp('4%'),
+                  fontWeight: '600',
+                  marginBottom: hp('0.5%'),
+                }}
+              >
+                {promo.title}
+              </Text>
+              {promo.products?.length > 0 && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ paddingHorizontal: wp('2%') }}
+                >
+                  {promo.products.map((item, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      onPress={() =>
+                        navigation.navigate('ProductDetails', { product: item })
+                      }
+                      activeOpacity={1}
+                    >
+                      <View
+                        style={{
+                          width: wp('40%'),
+                          marginRight: wp('3%'),
+                          backgroundColor: '#edececff',
+                          borderRadius: wp('2%'),
+                          overflow: 'hidden',
+                          elevation: 2,
+                        }}
+                      >
+                        <Image
+                          source={{ uri: item.image }}
+                          style={{
+                            width: '100%',
+                            height: hp('20%'),
+                            resizeMode: 'cover',
+                          }}
+                        />
+                        <Text
+                          style={{ padding: wp('2%'), fontWeight: '500' }}
+                          numberOfLines={1}
+                        >
                           {item.name}
                         </Text>
-                       <View
-                         style={{
-                           flexDirection: 'row',
-                           alignItems: 'center',
-                           paddingHorizontal: wp('2%'),
-                           marginBottom: hp('0.5%'),
-                         }}
-                       >
-                         <Text style={{ color: '#888', fontSize: wp('3%'), flex: 1 }}>1 Pc</Text>
-                         <Text
-                           style={{
-                             color: 'green',
-                             fontWeight: 'bold',
-                             fontSize: wp('3.5%'),
-                             textAlign: 'right',
-                           }}
-                         >
-                           RM{item?.variants?.[0]?.product_price || ''}
-                         </Text>
-                       </View>
-                       <CartButton item={item} />
-                     </View>
-                   </TouchableOpacity>
-                 ))}
-               </ScrollView>
-             )}
-          </View>
-        ))}
-
-      {/* Category Section */}
-      <View>
-        <Text style={styles.sectionTitle}>Category</Text>
-        {categories?.length > 0 && (
-          <FlatList
-            data={categories}
-            numColumns={2}
-            keyExtractor={(item, index) => index.toString()}
-            scrollEnabled={false}
-            removeClippedSubviews={false}
-            initialNumToRender={10}
-            maxToRenderPerBatch={10}
-            windowSize={10}
-            getItemLayout={null}
-            disableVirtualization={true}
-            contentContainerStyle={{ paddingHorizontal: wp('2%'), paddingBottom: hp('1.5%') }}
-            columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: hp('1.5%') }}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.cardContainer}
-                onPress={() =>
-                  navigation.navigate('SubCategory', {
-                    category_id: item.id,
-                    subcategory_id: data?.section?.[0]?.products?.[0]?.subcategory_id,
-                    category_name: item.name,
-                  })
-                }
-                activeOpacity={1}
-              >
-                {item.image ? (
-                  <Image source={{ uri: item.image }} style={styles.cardImage} />
-                ) : (
-                  <View style={styles.placeholderCircle} />
-                )}
-                <Text style={styles.cardText}>{item.name}</Text>
-              </TouchableOpacity>
-            )}
-          />
-        )}
-      </View>
-
-      {/* New Arrival Products Section */}
-      <View>
-        <Text style={styles.sectionTitle}>New arrival products</Text>
-        {products?.length > 0 && (
-          <FlatList
-            data={products}
-            numColumns={2}
-            scrollEnabled={false}
-            keyExtractor={(item, index) => index.toString()}
-            removeClippedSubviews={false}
-            initialNumToRender={10}
-            maxToRenderPerBatch={10}
-            windowSize={10}
-            getItemLayout={null}
-            disableVirtualization={true}
-            contentContainerStyle={{ paddingHorizontal: wp('2%'), paddingBottom: hp('1.5%') }}
-            columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: hp('1.5%') }}
-            renderItem={({ item }) => (
-              <View style={styles.cardContainer}>
-                <Image source={item.image} style={styles.cardImage} />
-                                 <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
-                <Text style={styles.productSize}>{item.size}</Text>
-                <Text style={styles.productPrice}>{item.price.replace('RM', 'RM')}</Text>
-                <CartButton item={item} />
-              </View>
-            )}
-          />
-        )}
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            paddingHorizontal: wp('2%'),
+                            marginBottom: hp('0.5%'),
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: '#888',
+                              fontSize: wp('3%'),
+                              flex: 1,
+                            }}
+                          >
+                            1 Pc
+                          </Text>
+                          <Text
+                            style={{
+                              color: 'green',
+                              fontWeight: 'bold',
+                              fontSize: wp('3.5%'),
+                              textAlign: 'right',
+                            }}
+                          >
+                            RM{item?.variants?.[0]?.product_price || ''}
+                          </Text>
+                        </View>
+                        <CartButton item={item} />
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
             </View>
-    </ScrollView>
-    <SimpleDrawer
-      visible={drawerVisible}
-      onClose={() => setDrawerVisible(false)}
-      navigation={navigation}
-    />
-  </SafeAreaView>
+          ))}
+
+        {/* Category Section */}
+        <View>
+          <Text style={styles.sectionTitle}>Category</Text>
+          {categories?.length > 0 && (
+            <FlatList
+              data={categories}
+              numColumns={2}
+              keyExtractor={(item, index) => index.toString()}
+              scrollEnabled={false}
+              removeClippedSubviews={false}
+              initialNumToRender={10}
+              maxToRenderPerBatch={10}
+              windowSize={10}
+              getItemLayout={null}
+              disableVirtualization={true}
+              contentContainerStyle={{
+                paddingHorizontal: wp('2%'),
+                paddingBottom: hp('1.5%'),
+              }}
+              columnWrapperStyle={{
+                justifyContent: 'space-between',
+                marginBottom: hp('1.5%'),
+              }}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.cardContainer}
+                  onPress={() =>
+                    navigation.navigate('SubCategory', {
+                      category_id: item.id,
+                      subcategory_id:
+                        data?.section?.[0]?.products?.[0]?.subcategory_id,
+                      category_name: item.name,
+                    })
+                  }
+                  activeOpacity={1}
+                >
+                  {item.image ? (
+                    <Image
+                      source={{ uri: item.image }}
+                      style={styles.cardImage}
+                    />
+                  ) : (
+                    <View style={styles.placeholderCircle} />
+                  )}
+                  <Text style={styles.cardText}>{item.name}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          )}
+        </View>
+
+        {/* New Arrival Products Section */}
+        <View>
+          <Text style={styles.sectionTitle}>New arrival products</Text>
+          {products?.length > 0 && (
+            <FlatList
+              data={products}
+              numColumns={2}
+              scrollEnabled={false}
+              keyExtractor={(item, index) => index.toString()}
+              removeClippedSubviews={false}
+              initialNumToRender={10}
+              maxToRenderPerBatch={10}
+              windowSize={10}
+              getItemLayout={null}
+              disableVirtualization={true}
+              contentContainerStyle={{
+                paddingHorizontal: wp('2%'),
+                paddingBottom: hp('1.5%'),
+              }}
+              columnWrapperStyle={{
+                justifyContent: 'space-between',
+                marginBottom: hp('1.5%'),
+              }}
+              renderItem={({ item }) => (
+                <View style={styles.cardContainer}>
+                  <Image source={item.image} style={styles.cardImage} />
+                  <Text style={styles.productName} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <Text style={styles.productSize}>{item.size}</Text>
+                  <Text style={styles.productPrice}>
+                    {item.price.replace('RM', 'RM')}
+                  </Text>
+                  <CartButton item={item} />
+                </View>
+              )}
+            />
+          )}
+        </View>
+      </ScrollView>
+      <SimpleDrawer
+        visible={drawerVisible}
+        onClose={() => setDrawerVisible(false)}
+        navigation={navigation}
+      />
+    </SafeAreaView>
   );
-}
+};
 
 const styles = StyleSheet.create({
   header: {
@@ -473,7 +518,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
   },
   searchWrapper: {
-   
     backgroundColor: '#fff',
     paddingHorizontal: wp('4%'),
     paddingVertical: hp('1%'),

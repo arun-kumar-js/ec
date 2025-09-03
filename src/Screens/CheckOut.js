@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -8,15 +8,28 @@ import {
   ScrollView,
   SafeAreaView,
   StatusBar,
+  Image,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { validatePromoCode } from '../Fuctions/PromoCodeService';
+import { getDeliveryMethods } from '../Fuctions/DeliveryMethodService';
+import { fetchCartItems } from '../Fuctions/CartService';
 
 const CheckOutScreen = ({ route }) => {
   const navigation = useNavigation();
   const [promoCode, setPromoCode] = useState('');
   const [deliveryMethod, setDeliveryMethod] = useState('');
   const [showDeliveryOptions, setShowDeliveryOptions] = useState(false);
+  const [promoApplied, setPromoApplied] = useState(false);
+  const [promoDiscount, setPromoDiscount] = useState(0);
+  const [promoMessage, setPromoMessage] = useState('');
+  const [user, setUser] = useState(null);
+  const [deliveryMethods, setDeliveryMethods] = useState({});
+  const [availableDeliveryOptions, setAvailableDeliveryOptions] = useState([]);
+  const [cartItems, setCartItems] = useState([]);
 
   // Get selected address from route params
   const selectedAddress = route.params?.selectedAddress || {
@@ -26,23 +39,17 @@ const CheckOutScreen = ({ route }) => {
     email: 'veeramani23@gmail.com',
   };
 
-  const orderItems = [
-    {
-      id: 1,
-      name: 'Neem & Turmeric Soap',
-      qty: 1,
-      price: 3.0,
-      subtotal: 3.0,
-      cg: 0.2,
-    },
-  ];
-
   const calculateTotals = () => {
-    const subtotal = orderItems.reduce((sum, item) => sum + item.subtotal, 0);
-    const tax = orderItems.reduce((sum, item) => sum + item.cg, 0);
+    const subtotal = cartItems.reduce((sum, item) => {
+      const price = parseFloat(
+        item.price?.replace('₹', '') || item.product_price || 0,
+      );
+      return sum + price * (item.quantity || 1);
+    }, 0);
+    const tax = subtotal * 0.18; // 18% GST
     const taxableAmount = subtotal - tax;
     const deliveryCharge = 0.0;
-    const total = subtotal + deliveryCharge;
+    const total = subtotal + deliveryCharge - promoDiscount;
 
     return {
       taxableAmount,
@@ -50,6 +57,7 @@ const CheckOutScreen = ({ route }) => {
       subtotal,
       deliveryCharge,
       total,
+      promoDiscount,
     };
   };
 
@@ -60,6 +68,108 @@ const CheckOutScreen = ({ route }) => {
     { id: 'express', name: 'Express Delivery (1 day)', price: 50 },
     { id: 'same_day', name: 'Same Day Delivery', price: 100 },
   ];
+
+  // Load user data and delivery methods on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // Load user data
+        const storedUser = await AsyncStorage.getItem('userData');
+        if (storedUser) {
+          const userObj = JSON.parse(storedUser);
+          setUser(userObj);
+        }
+
+        // Load cart items
+        const cartData = await fetchCartItems();
+        setCartItems(cartData);
+
+        // Load delivery methods
+        const deliveryResult = await getDeliveryMethods();
+        if (deliveryResult.success && deliveryResult.data) {
+          setDeliveryMethods(deliveryResult.data);
+
+          // Create available delivery options based on API response
+          const availableOptions = [];
+
+          if (deliveryResult.data.in_persion_delivery === '1') {
+            availableOptions.push({
+              id: 'in_person',
+              name: 'IN PERSON DELIVERY',
+              price: 0,
+            });
+          }
+
+          if (deliveryResult.data.Delivery_by_courier === '1') {
+            availableOptions.push({
+              id: 'courier',
+              name: 'DELIVERY BY COURIER',
+              price: 0,
+            });
+          }
+
+          if (deliveryResult.data.storepickup === '1') {
+            availableOptions.push({
+              id: 'store_pickup',
+              name: 'STORE PICKUP',
+              price: 0,
+            });
+          }
+
+          if (deliveryResult.data.dunzo === '1') {
+            availableOptions.push({
+              id: 'dunzo',
+              name: 'DUNZO DELIVERY',
+              price: 0,
+            });
+          }
+
+          setAvailableDeliveryOptions(availableOptions);
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+      }
+    };
+    loadData();
+  }, []);
+
+  const handleApplyPromoCode = async () => {
+    if (!promoCode.trim()) {
+      Alert.alert('Error', 'Please enter a promo code');
+      return;
+    }
+
+    if (!user) {
+      Alert.alert('Error', 'User not found');
+      return;
+    }
+
+    const currentTotal = calculateTotals().subtotal;
+    const userId = user.user_id || user.id;
+
+    try {
+      const result = await validatePromoCode(
+        promoCode.trim(),
+        currentTotal,
+        userId,
+      );
+
+      if (result.success) {
+        setPromoApplied(true);
+        setPromoDiscount(result.discount);
+        setPromoMessage(result.message);
+        Alert.alert('Success', result.message);
+      } else {
+        setPromoApplied(false);
+        setPromoDiscount(0);
+        setPromoMessage(result.message);
+        Alert.alert('Error', result.message);
+      }
+    } catch (error) {
+      console.error('Error applying promo code:', error);
+      Alert.alert('Error', 'Failed to apply promo code');
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -77,21 +187,25 @@ const CheckOutScreen = ({ route }) => {
       {/* Progress Indicator */}
       <View style={styles.progressContainer}>
         <View style={styles.progressStep}>
-          <View style={[styles.progressDot, styles.activeDot]}>
-            <Icon name="checkmark" size={16} color="white" />
+          <View style={styles.progressContent}>
+            <Image
+              source={require('../Assets/Images/red.png')}
+              style={styles.progressIcon}
+            />
+            <Text style={[styles.progressText, styles.activeProgressText]}>
+              Delivery
+            </Text>
           </View>
-          <Text style={[styles.progressText, styles.activeProgressText]}>
-            Delivery
-          </Text>
         </View>
-        <View style={styles.progressArrow}>
-          <Icon name="chevron-forward" size={20} color="#EF3340" />
-        </View>
+        <View style={styles.progressArrow}></View>
         <View style={styles.progressStep}>
-          <View style={styles.progressDot}>
-            <Text style={styles.progressNumber}>2</Text>
+          <View style={styles.progressContent}>
+            <Image
+              source={require('../Assets/Images/ash.png')}
+              style={styles.progressIcon}
+            />
+            <Text style={styles.progressText}>Payment</Text>
           </View>
-          <Text style={styles.progressText}>Payment</Text>
         </View>
       </View>
 
@@ -134,10 +248,16 @@ const CheckOutScreen = ({ route }) => {
               value={promoCode}
               onChangeText={setPromoCode}
             />
-            <TouchableOpacity style={styles.applyButton}>
+            <TouchableOpacity
+              style={styles.applyButton}
+              onPress={handleApplyPromoCode}
+            >
               <Text style={styles.applyButtonText}>Apply</Text>
             </TouchableOpacity>
           </View>
+          {promoApplied && promoMessage && (
+            <Text style={styles.promoMessage}>{promoMessage}</Text>
+          )}
         </View>
 
         {/* Delivery Method Section */}
@@ -159,7 +279,7 @@ const CheckOutScreen = ({ route }) => {
 
           {showDeliveryOptions && (
             <View style={styles.deliveryOptions}>
-              {deliveryOptions.map(option => (
+              {availableDeliveryOptions.map(option => (
                 <TouchableOpacity
                   key={option.id}
                   style={styles.deliveryOption}
@@ -170,7 +290,7 @@ const CheckOutScreen = ({ route }) => {
                 >
                   <Text style={styles.deliveryOptionText}>{option.name}</Text>
                   <Text style={styles.deliveryOptionPrice}>
-                    {option.price > 0 ? `₹${option.price}` : 'Free'}
+                    {option.price > 0 ? `₹${option.price}` : 'FREE'}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -192,13 +312,36 @@ const CheckOutScreen = ({ route }) => {
           </View>
 
           {/* Table Rows */}
-          {orderItems.map(item => (
-            <View key={item.id} style={styles.tableRow}>
-              <Text style={styles.tableCell}>{item.name}</Text>
-              <Text style={styles.tableCell}>{item.qty}</Text>
-              <Text style={styles.tableCell}>₹{item.price.toFixed(2)}</Text>
-              <Text style={styles.tableCell}>₹{item.subtotal.toFixed(2)}</Text>
-              <Text style={styles.tableCell}>₹{item.cg.toFixed(2)}</Text>
+          {cartItems.map(item => (
+            <View key={item.id || item.product_id} style={styles.tableRow}>
+              <Text style={styles.tableCell}>
+                {item.name || item.product_name}
+              </Text>
+              <Text style={styles.tableCell}>{item.quantity || 1}</Text>
+              <Text style={styles.tableCell}>
+                ₹
+                {parseFloat(
+                  item.price?.replace('₹', '') || item.product_price || 0,
+                ).toFixed(2)}
+              </Text>
+              <Text style={styles.tableCell}>
+                ₹
+                {(
+                  parseFloat(
+                    item.price?.replace('₹', '') || item.product_price || 0,
+                  ) * (item.quantity || 1)
+                ).toFixed(2)}
+              </Text>
+              <Text style={styles.tableCell}>
+                ₹
+                {(
+                  parseFloat(
+                    item.price?.replace('₹', '') || item.product_price || 0,
+                  ) *
+                  (item.quantity || 1) *
+                  0.18
+                ).toFixed(2)}
+              </Text>
             </View>
           ))}
 
@@ -222,6 +365,14 @@ const CheckOutScreen = ({ route }) => {
                 ₹{totals.subtotal.toFixed(2)}
               </Text>
             </View>
+            {promoApplied && promoDiscount > 0 && (
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Promo Discount</Text>
+                <Text style={[styles.summaryValue, styles.discountValue]}>
+                  - ₹{promoDiscount.toFixed(2)}
+                </Text>
+              </View>
+            )}
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Delivery Charge</Text>
               <Text style={styles.summaryValue}>
@@ -266,6 +417,7 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
+    fontFamily: 'Montserrat',
   },
   progressContainer: {
     backgroundColor: 'white',
@@ -277,6 +429,11 @@ const styles = StyleSheet.create({
   },
   progressStep: {
     alignItems: 'center',
+  },
+  progressContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   progressDot: {
     width: 24,
@@ -290,18 +447,20 @@ const styles = StyleSheet.create({
   activeDot: {
     backgroundColor: '#EF3340',
   },
-  progressNumber: {
-    color: '#666',
-    fontSize: 12,
-    fontWeight: 'bold',
+  progressIcon: {
+    width: 24,
+    height: 24,
+    resizeMode: 'contain',
   },
   progressText: {
-    fontSize: 12,
+    fontSize: 16,
     color: '#666',
+    fontFamily: 'Montserrat',
   },
   activeProgressText: {
     color: '#EF3340',
     fontWeight: 'bold',
+    fontFamily: 'Montserrat',
   },
   progressArrow: {
     marginHorizontal: 16,
@@ -334,6 +493,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#EF3340',
+    fontFamily: 'Montserrat',
   },
   addressContent: {
     gap: 4,
@@ -342,11 +502,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
+    fontFamily: 'Montserrat',
   },
   addressText: {
     fontSize: 14,
     color: '#666',
     lineHeight: 20,
+    fontFamily: 'Montserrat',
   },
   promoContainer: {
     flexDirection: 'row',
@@ -360,6 +522,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
+    fontFamily: 'Montserrat',
   },
   applyButton: {
     backgroundColor: '#EF3340',
@@ -373,6 +536,14 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     fontWeight: 'bold',
+    fontFamily: 'Montserrat',
+  },
+  promoMessage: {
+    fontSize: 12,
+    color: '#28a745',
+    marginTop: 8,
+    fontStyle: 'italic',
+    fontFamily: 'Montserrat',
   },
   deliverySelector: {
     flexDirection: 'row',
@@ -387,10 +558,12 @@ const styles = StyleSheet.create({
   deliveryText: {
     fontSize: 14,
     color: '#333',
+    fontFamily: 'Montserrat',
   },
   placeholderText: {
     fontSize: 14,
     color: '#999',
+    fontFamily: 'Montserrat',
   },
   deliveryOptions: {
     marginTop: 8,
@@ -410,11 +583,13 @@ const styles = StyleSheet.create({
   deliveryOptionText: {
     fontSize: 14,
     color: '#333',
+    fontFamily: 'Montserrat',
   },
   deliveryOptionPrice: {
     fontSize: 14,
     color: '#EF3340',
     fontWeight: 'bold',
+    fontFamily: 'Montserrat',
   },
   tableHeader: {
     flexDirection: 'row',
@@ -428,6 +603,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#666',
     textAlign: 'center',
+    fontFamily: 'Montserrat',
   },
   tableRow: {
     flexDirection: 'row',
@@ -440,6 +616,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#333',
     textAlign: 'center',
+    fontFamily: 'Montserrat',
   },
   summaryBreakdown: {
     marginTop: 16,
@@ -455,11 +632,17 @@ const styles = StyleSheet.create({
   summaryLabel: {
     fontSize: 14,
     color: '#666',
+    fontFamily: 'Montserrat',
   },
   summaryValue: {
     fontSize: 14,
     color: '#333',
     fontWeight: 'bold',
+    fontFamily: 'Montserrat',
+  },
+  discountValue: {
+    color: '#28a745',
+    fontFamily: 'Montserrat',
   },
   bottomBar: {
     backgroundColor: 'white',
@@ -480,6 +663,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
+    fontFamily: 'Montserrat',
   },
   confirmButton: {
     backgroundColor: '#EF3340',
@@ -494,6 +678,7 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+    fontFamily: 'Montserrat',
   },
 });
 

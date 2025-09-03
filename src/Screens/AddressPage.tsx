@@ -304,26 +304,22 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#333333',
     marginBottom: 10,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
+    fontFamily: 'Montserrat',
     fontWeight: '600',
   },
   subtitle: {
     fontSize: 14,
     color: '#666666',
     textAlign: 'center',
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
+    fontFamily: 'Montserrat',
   },
   addressCard: {
     backgroundColor: '#f8f9fa',
-    padding: 8,
-    borderRadius: 6,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
+    padding: 6,
+    borderRadius: 4,
+    marginBottom: 6,
   },
   selectedAddressCard: {
-    borderColor: '#EF3340',
-    borderWidth: 2,
     backgroundColor: '#fff5f5',
   },
   addressContent: {
@@ -399,7 +395,7 @@ const styles = StyleSheet.create({
   },
   addressActions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-start',
     marginTop: 8,
     gap: 8,
   },
@@ -418,6 +414,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#EF3340',
     fontWeight: '500',
+    fontFamily: 'Montserrat',
   },
   editButton: {
     flexDirection: 'row',
@@ -434,23 +431,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#007AFF',
     fontWeight: '500',
+    fontFamily: 'Montserrat',
   },
   deleteButtonText: {
     fontSize: 14,
     color: '#EF3340',
     fontWeight: '500',
+    fontFamily: 'Montserrat',
   },
   addressName: {
     fontSize: 16,
     color: '#333',
     fontWeight: '600',
     marginBottom: 5,
+    fontFamily: 'Montserrat',
   },
   addressText: {
     fontSize: 14,
     color: '#666',
     marginBottom: 3,
     lineHeight: 20,
+    fontFamily: 'Montserrat',
   },
   bottomButtons: {
     flexDirection: 'row',
@@ -475,7 +476,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-medium',
+    fontFamily: 'Montserrat',
   },
   continueButton: {
     flex: 1,
@@ -492,7 +493,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-medium',
+    fontFamily: 'Montserrat',
   },
 });
 
