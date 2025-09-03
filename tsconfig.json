@@ -1,0 +1,5 @@
+{
+  "extends": "@react-native/typescript-config",
+  "include": ["**/*.ts", "**/*.tsx", "src2/screens/OtpPage.js"],
+  "exclude": ["**/node_modules", "**/Pods"]
+}
