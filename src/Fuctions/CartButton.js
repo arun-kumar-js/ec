@@ -4,150 +4,156 @@ import {
   widthPercentageToDP as wp,
   heightPercentageToDP as hp,
 } from 'react-native-responsive-screen';
-import Icon from 'react-native-vector-icons/Ionicons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  updateCartItem,
+  getProductQuantity,
+  increaseProductQuantity,
+  decreaseProductQuantity,
+} from './CartService';
+import { onCartUpdated, offCartUpdated } from './cartEvents';
 
-const CartButton = ({ productId, onQuantityChange, style, textStyle }) => {
-  const [quantity, setQuantity] = useState(0);
-  const [loading, setLoading] = useState(false);
+const CartButton = ({ product, initialQuantity = 0, onChange, tax = 0 }) => {
+  const [quantity, setQuantity] = useState(initialQuantity);
 
   useEffect(() => {
-    loadQuantity();
-  }, [productId]);
+    const fetchQuantity = async () => {
+      try {
+        const productId = product.id ?? product.product_id;
+        if (!productId) {
+          console.warn('Invalid product id:', product);
+          return;
+        }
+        const currentQuantity = await getProductQuantity(productId);
+        setQuantity(currentQuantity);
+        onChange?.(currentQuantity);
+      } catch (error) {
+        console.error('Error fetching product quantity:', error);
+      }
+    };
 
-  const loadQuantity = async () => {
-    try {
-      const cartItems = await AsyncStorage.getItem('cartItems');
-      if (cartItems) {
-        const items = JSON.parse(cartItems);
-        const item = items.find(item => item.id === productId);
-        setQuantity(item ? item.quantity : 0);
-      }
-    } catch (error) {
-      console.error('Error loading quantity:', error);
-    }
-  };
+    fetchQuantity();
 
-  const updateCart = async (newQuantity) => {
+    // Listen for cart updates
+    const listener = () => fetchQuantity();
+    onCartUpdated(listener);
+
+    return () => {
+      offCartUpdated(listener);
+    };
+  }, [product, onChange]);
+
+  const updateQuantity = async newQty => {
     try {
-      const cartItems = await AsyncStorage.getItem('cartItems');
-      let items = cartItems ? JSON.parse(cartItems) : [];
-      
-      const existingItemIndex = items.findIndex(item => item.id === productId);
-      
-      if (newQuantity === 0) {
-        // Remove item from cart
-        items = items.filter(item => item.id !== productId);
-      } else if (existingItemIndex >= 0) {
-        // Update existing item
-        items[existingItemIndex].quantity = newQuantity;
-      } else {
-        // Add new item (this shouldn't happen with this component)
-        console.warn('Trying to add new item with CartButton');
+      // Ensure quantity never goes below 1
+      if (newQty < 1) {
+        newQty = 1;
       }
-      
-      await AsyncStorage.setItem('cartItems', JSON.stringify(items));
-      setQuantity(newQuantity);
-      
-      if (onQuantityChange) {
-        onQuantityChange(newQuantity);
-      }
+
+      const updatedQty = await updateCartItem(product, newQty);
+      setQuantity(updatedQty);
+      onChange?.(updatedQty);
     } catch (error) {
-      console.error('Error updating cart:', error);
+      console.warn('Failed to update cart item:', error);
     }
   };
 
   const handleIncrease = async () => {
-    if (loading) return;
-    setLoading(true);
     try {
-      await updateCart(quantity + 1);
+      const newQty = await increaseProductQuantity(product);
+      setQuantity(newQty);
+      onChange?.(newQty);
     } catch (error) {
-      console.error('Error increasing quantity:', error);
-    } finally {
-      setLoading(false);
+      console.warn('Failed to increase quantity:', error);
     }
   };
 
   const handleDecrease = async () => {
-    if (loading) return;
-    setLoading(true);
     try {
-      await updateCart(quantity - 1);
+      const newQty = await decreaseProductQuantity(product);
+      setQuantity(newQty);
+      onChange?.(newQty);
     } catch (error) {
-      console.error('Error decreasing quantity:', error);
-    } finally {
-      setLoading(false);
+      console.warn('Failed to decrease quantity:', error);
     }
   };
 
-  if (quantity === 0) {
-    return (
-      <TouchableOpacity
-        style={[styles.addButton, style]}
-        onPress={handleIncrease}
-        disabled={loading}
-      >
-        <Text style={[styles.addButtonText, textStyle]}>Add</Text>
-      </TouchableOpacity>
-    );
-  }
-
   return (
-    <View style={[styles.quantityContainer, style]}>
-      <TouchableOpacity
-        style={styles.quantityButton}
-        onPress={handleDecrease}
-        disabled={loading}
-      >
-        <Icon name="remove" size={wp('4%')} color="#007AFF" />
-      </TouchableOpacity>
-      
-      <Text style={[styles.quantityText, textStyle]}>{quantity}</Text>
-      
-      <TouchableOpacity
-        style={styles.quantityButton}
-        onPress={handleIncrease}
-        disabled={loading}
-      >
-        <Icon name="add" size={wp('4%')} color="#007AFF" />
-      </TouchableOpacity>
+    <View style={{ flex: 1 }}>
+      {quantity > 0 ? (
+        <View style={styles.cartContainer}>
+          <TouchableOpacity
+            style={styles.quantityButton}
+            onPress={handleDecrease}
+          >
+            <Text style={styles.quantityButtonText}>-</Text>
+          </TouchableOpacity>
+          <View style={styles.countBox}>
+            <Text style={styles.countText}>{quantity}</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.quantityButton}
+            onPress={handleIncrease}
+          >
+            <Text style={styles.quantityButtonText}>+</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => updateQuantity(1)}
+        >
+          <Text style={styles.addButtonText}>Add</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  addButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: hp('1%'),
-    paddingHorizontal: wp('3%'),
-    borderRadius: wp('2%'),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: wp('3.5%'),
-  },
-  quantityContainer: {
+  cartContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#F70D24',
     borderRadius: wp('2%'),
-    paddingHorizontal: wp('1%'),
+    height: hp('5%'),
+    paddingHorizontal: wp('2%'),
   },
   quantityButton: {
-    padding: wp('1%'),
-    borderRadius: wp('1%'),
+    paddingHorizontal: wp('3%'),
+    paddingVertical: hp('0.9%'),
   },
-  quantityText: {
+  quantityButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: wp('4.5%'),
+  },
+  countBox: {
+    backgroundColor: '#fff',
+    // borderRadius: wp('1%'),
+    paddingHorizontal: wp('3%'),
+    paddingVertical: hp('1.5%'),
+    marginHorizontal: wp('2%'),
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: wp('10%'),
+  },
+  countText: {
+    color: '#F70D24',
+    fontWeight: 'bold',
+    fontSize: wp('4%'),
+    textAlign: 'center',
+  },
+  addButton: {
+    backgroundColor: '#F70D24',
+    borderRadius: wp('2%'),
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: hp('1.8%'),
+  },
+  addButtonText: {
+    color: 'white',
     fontSize: wp('4%'),
     fontWeight: 'bold',
-    color: '#333',
-    marginHorizontal: wp('2%'),
-    minWidth: wp('6%'),
-    textAlign: 'center',
   },
 });
 

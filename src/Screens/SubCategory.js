@@ -1,378 +1,484 @@
-import React, { useState, useEffect } from 'react';
+import { API_ACCESS_KEY, SUB_CATEGORIES_ENDPOINT } from '../config/config';
 import {
-  View,
-  Text,
   StyleSheet,
+  Text,
+  View,
   FlatList,
-  TouchableOpacity,
   Image,
-  TextInput,
-  ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
+import React, { useEffect, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import axios from 'axios';
 import {
   widthPercentageToDP as wp,
   heightPercentageToDP as hp,
 } from 'react-native-responsive-screen';
-import Icon from 'react-native-vector-icons/Ionicons';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import axios from 'axios';
-import { SUB_CATEGORIES_ENDPOINT, API_ACCESS_KEY } from '../config/config';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import {
+  getProductQuantity,
+  increaseProductQuantity,
+  decreaseProductQuantity,
+} from '../Fuctions/CartService';
+import { onCartUpdated, offCartUpdated } from '../Fuctions/cartEvents';
 
-const SubCategoryScreen = () => {
-  const navigation = useNavigation();
-  const route = useRoute();
-  const { categoryId, categoryName } = route.params || {};
-  
+const SubCategory = ({ route, navigation }) => {
+  const { category_id, subcategory_id, category_name } = route.params;
   const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('name');
-  const [filterVisible, setFilterVisible] = useState(false);
+  const [favorites, setFavorites] = useState({});
+  const [cartQuantities, setCartQuantities] = useState({});
 
-  useEffect(() => {
-    loadProducts();
-  }, [categoryId]);
+  console.log('SubCategory Params:', {
+    category_id,
+    subcategory_id,
+    category_name,
+  });
 
-  const loadProducts = async () => {
-    if (!categoryId) return;
-    
-    setLoading(true);
+  // Fetch cart quantities for all products
+  const fetchCartQuantities = async () => {
     try {
-      const formData = new FormData();
-      formData.append('accesskey', API_ACCESS_KEY);
-      formData.append('category_id', categoryId);
-
-      const response = await axios.post(SUB_CATEGORIES_ENDPOINT, formData);
-      
-      if (response.data && response.data.error === 'false') {
-        setProducts(response.data.data || []);
-      } else {
-        console.error('API error:', response.data);
+      const quantities = {};
+      for (const product of products) {
+        const productId = product.id ?? product.product_id;
+        if (productId) {
+          const quantity = await getProductQuantity(productId);
+          quantities[productId] = quantity;
+        }
       }
+      setCartQuantities(quantities);
     } catch (error) {
-      console.error('Error loading products:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error fetching cart quantities:', error);
     }
   };
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const formData = new FormData();
+        formData.append('subcategory_id', subcategory_id);
+        formData.append('accesskey', API_ACCESS_KEY);
+        formData.append('limit', '10');
+        formData.append('category_id', category_id);
+        const response = await axios.post(SUB_CATEGORIES_ENDPOINT, formData);
+        setProducts(response.data.data);
+        console.log('SubCategory Products:', response.data.data);
+        const firstProductPrice = products[0]?.variants?.[0]?.product_price;
+        console.log('First product price:', firstProductPrice);
 
-  const sortedProducts = [...filteredProducts].sort((a, b) => {
-    switch (sortBy) {
-      case 'name':
-        return a.name.localeCompare(b.name);
-      case 'price_low':
-        return parseFloat(a.price) - parseFloat(b.price);
-      case 'price_high':
-        return parseFloat(b.price) - parseFloat(a.price);
-      default:
-        return 0;
+        console.log('Products fetched:', response.data.data);
+      } catch (error) {
+        console.error('Error fetching products:', error);
+      }
+    };
+    fetchProducts();
+  }, [category_id, subcategory_id]);
+
+  // Fetch cart quantities when products change
+  useEffect(() => {
+    if (products.length > 0) {
+      fetchCartQuantities();
     }
-  });
+  }, [products]);
 
-  const renderProduct = ({ item }) => (
-    <TouchableOpacity
-      style={styles.productCard}
-      onPress={() => navigation.navigate('ProductDetails', { product: item })}
-    >
-      <Image
-        source={{ uri: item.image }}
-        style={styles.productImage}
-        resizeMode="cover"
-      />
-      <View style={styles.productInfo}>
-        <Text style={styles.productName} numberOfLines={2}>
-          {item.name}
-        </Text>
-        <Text style={styles.productPrice}>₹{item.price}</Text>
-        <View style={styles.productActions}>
-          <TouchableOpacity
-            style={styles.addToCartButton}
-            onPress={() => {
-              // Add to cart logic
-              navigation.navigate('ProductDetails', { product: item });
-            }}
-          >
-            <Icon name="cart-outline" size={wp('4%')} color="#007AFF" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.wishlistButton}
-            onPress={() => {
-              // Add to wishlist logic
-            }}
-          >
-            <Icon name="heart-outline" size={wp('4%')} color="#ff4444" />
-          </TouchableOpacity>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+  // Listen for cart updates
+  useEffect(() => {
+    const listener = () => fetchCartQuantities();
+    onCartUpdated(listener);
+    return () => {
+      offCartUpdated(listener);
+    };
+  }, [products]);
 
-  const renderSortOption = (value, label) => (
-    <TouchableOpacity
-      style={[styles.sortOption, sortBy === value && styles.selectedSortOption]}
-      onPress={() => setSortBy(value)}
-    >
-      <Text style={[styles.sortText, sortBy === value && styles.selectedSortText]}>
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
+  const toggleFavorite = productId => {
+    setFavorites(prev => ({
+      ...prev,
+      [productId]: !prev[productId],
+    }));
+  };
 
-  if (loading) {
+  const increaseQuantity = async item => {
+    try {
+      const productId = item.id ?? item.product_id;
+      const newQuantity = await increaseProductQuantity(item);
+      setCartQuantities(prev => ({
+        ...prev,
+        [productId]: newQuantity,
+      }));
+    } catch (error) {
+      console.error('Error increasing quantity:', error);
+    }
+  };
+
+  const decreaseQuantity = async item => {
+    try {
+      const productId = item.id ?? item.product_id;
+      const newQuantity = await decreaseProductQuantity(item);
+      setCartQuantities(prev => ({
+        ...prev,
+        [productId]: newQuantity,
+      }));
+    } catch (error) {
+      console.error('Error decreasing quantity:', error);
+    }
+  };
+
+  // Assume single column for now; if you add numColumns, adjust width accordingly.
+  const numColumns = 1;
+  const renderProduct = ({ item }) => {
+    const originalPrice = Number(item.price);
+    const salePrice = Number(item.variants?.[0]?.product_price ?? item.price);
+    const hasDiscount = originalPrice !== salePrice;
+    const discountPercent = hasDiscount
+      ? Math.round(((originalPrice - salePrice) / originalPrice) * 100)
+      : 0;
+
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Icon name="arrow-back" size={wp('6%')} color="#333" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>{categoryName || 'Products'}</Text>
-          <View style={{ width: wp('6%') }} />
+      <TouchableOpacity
+        style={[styles.card, { width: numColumns === 1 ? '100%' : '48%' }]}
+        onPress={() => navigation.navigate('ProductDetails', { product: item })}
+      >
+        {hasDiscount && (
+          <View
+            style={{
+              position: 'absolute',
+              top: hp('1.8%'),
+              left: wp('4%'),
+              backgroundColor: 'green',
+              paddingHorizontal: wp('2%'),
+              paddingVertical: hp('0.3%'),
+              borderRadius: wp('1%'),
+              zIndex: 10,
+            }}
+          >
+            <Text
+              style={{ color: '#fff', fontWeight: 'bold', fontSize: wp('3%') }}
+            >
+              {item.pre_order_sts === 'yes'
+                ? 'Pre Order'
+                : `${discountPercent}% OFF`}
+            </Text>
+          </View>
+        )}
+        <TouchableOpacity
+          style={[styles.heartIcon, { borderRadius: wp('3%') }]}
+          onPress={() => toggleFavorite(item.id)}
+        >
+          <Ionicons
+            name={favorites[item.id] ? 'heart' : 'heart-outline'}
+            size={24}
+            color="#F70D24"
+          />
+        </TouchableOpacity>
+        <Image source={{ uri: item.image }} style={styles.productImage} />
+        <View style={styles.productDetails}>
+          <Text style={styles.name} numberOfLines={1}>
+            {item.name}
+          </Text>
+          <View style={styles.ratingRow}>
+            <View style={styles.ratingBadge}>
+              <Text style={styles.ratingText}>{item.rating || '0'}</Text>
+              <Text style={styles.star}>★</Text>
+            </View>
+            <Text
+              style={[
+                styles.ratingText,
+                { color: '#000', marginLeft: wp('2%') },
+              ]}
+            >
+              {item.rating_count || 'N/A'} Ratings
+            </Text>
+          </View>
+          <View style={styles.quantityBox}>
+            <Text style={styles.quantity}>
+              Qty: {item?.variants?.[0]?.measurement_unit_name || 'N/A'}
+            </Text>
+          </View>
+
+          <View style={styles.priceRow}>
+            <View
+              style={{
+                paddingVertical: hp('0.5%'),
+                paddingHorizontal: wp('1%'),
+              }}
+            >
+              {hasDiscount && (
+                <Text
+                  style={{
+                    textDecorationLine: 'line-through',
+                    color: '#000',
+                    fontSize: wp('2.5%'),
+                    paddingVertical: hp('0.5%'),
+                  }}
+                >
+                  RM {item.price}
+                </Text>
+              )}
+              <Text style={styles.price}>
+                RM {item.variants?.[0]?.product_price ?? item.price}
+              </Text>
+            </View>
+            {cartQuantities[item.id] ? (
+              <View style={styles.cartContainer}>
+                <TouchableOpacity
+                  style={styles.quantityButton}
+                  onPress={() => decreaseQuantity(item)}
+                >
+                  <Text style={styles.quantityButtonText}>-</Text>
+                </TouchableOpacity>
+
+                <View style={styles.countBox}>
+                  <Text style={styles.countText}>
+                    {cartQuantities[item.id]}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.quantityButton}
+                  onPress={() => increaseQuantity(item)}
+                >
+                  <Text style={styles.quantityButtonText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={() => increaseQuantity(item)}
+              >
+                <Text style={styles.addButtonText}>Add</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>Loading products...</Text>
-        </View>
-      </SafeAreaView>
+      </TouchableOpacity>
     );
-  }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={wp('6%')} color="#333" />
+          <Ionicons name="arrow-back" size={28} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{categoryName || 'Products'}</Text>
-        <TouchableOpacity onPress={() => setFilterVisible(!filterVisible)}>
-          <Icon name="filter" size={wp('6%')} color="#333" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Icon name="search" size={wp('5%')} color="#666" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search products..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Icon name="close-circle" size={wp('5%')} color="#666" />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Sort Options */}
-      {filterVisible && (
-        <View style={styles.sortContainer}>
-          <Text style={styles.sortLabel}>Sort by:</Text>
-          <View style={styles.sortOptions}>
-            {renderSortOption('name', 'Name')}
-            {renderSortOption('price_low', 'Price: Low to High')}
-            {renderSortOption('price_high', 'Price: High to Low')}
-          </View>
-        </View>
-      )}
-
-      {/* Products Count */}
-      <View style={styles.productsCount}>
-        <Text style={styles.countText}>
-          {sortedProducts.length} product{sortedProducts.length !== 1 ? 's' : ''} found
+        <Text
+          style={{ color: '#fff', fontSize: wp('4.5%'), fontWeight: 'bold' }}
+        >
+          {category_name}
         </Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            width: wp('20%'),
+            justifyContent: 'space-between',
+          }}
+        >
+          <TouchableOpacity onPress={() => alert('Search pressed')}>
+            <Ionicons name="search" size={28} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Cart')}>
+            <Ionicons name="cart-outline" size={28} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
-
-      {/* Products List */}
-      <FlatList
-        data={sortedProducts}
-        renderItem={renderProduct}
-        keyExtractor={(item) => item.id.toString()}
-        numColumns={2}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.productsList}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Icon name="search-outline" size={wp('15%')} color="#ccc" />
-            <Text style={styles.emptyTitle}>No products found</Text>
-            <Text style={styles.emptySubtitle}>
-              Try adjusting your search or filters
-            </Text>
-          </View>
-        }
-      />
+      {products.length > 0 ? (
+        <FlatList
+          data={products}
+          renderItem={renderProduct}
+          keyExtractor={item => item.id}
+          removeClippedSubviews={false}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={10}
+        />
+      ) : (
+        <Text style={styles.emptyText}>No products found</Text>
+      )}
     </SafeAreaView>
   );
 };
 
+export default SubCategory;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    //padding: wp('3%'),
+    backgroundColor: '#fff',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: wp('4%'),
-    paddingVertical: hp('2%'),
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  headerTitle: {
-    fontSize: wp('4.5%'),
-    fontWeight: '600',
-    color: '#333',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: wp('4%'),
-    color: '#666',
-    marginTop: hp('2%'),
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    marginHorizontal: wp('4%'),
-    marginVertical: hp('2%'),
-    paddingHorizontal: wp('3%'),
-    borderRadius: wp('2%'),
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  searchIcon: {
-    marginRight: wp('2%'),
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: wp('4%'),
-    color: '#333',
     paddingVertical: hp('1.5%'),
-  },
-  sortContainer: {
-    backgroundColor: '#fff',
     paddingHorizontal: wp('4%'),
-    paddingVertical: hp('2%'),
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    backgroundColor: '#e60023',
+    width: '100%',
+    fontSize: wp('5%'),
   },
-  sortLabel: {
-    fontSize: wp('4%'),
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: hp('1%'),
-  },
-  sortOptions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  sortOption: {
-    paddingHorizontal: wp('3%'),
-    paddingVertical: hp('1%'),
-    marginRight: wp('2%'),
-    marginBottom: hp('1%'),
-    borderRadius: wp('2%'),
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+  // row style not needed for single column FlatList
+  card: {
     backgroundColor: '#f9f9f9',
-  },
-  selectedSortOption: {
-    borderColor: '#007AFF',
-    backgroundColor: '#f0f8ff',
-  },
-  sortText: {
-    fontSize: wp('3.5%'),
-    color: '#666',
-  },
-  selectedSortText: {
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  productsCount: {
-    paddingHorizontal: wp('4%'),
-    paddingVertical: hp('1%'),
-  },
-  countText: {
-    fontSize: wp('3.5%'),
-    color: '#666',
-  },
-  productsList: {
-    padding: wp('2%'),
-  },
-  productCard: {
-    flex: 1,
-    backgroundColor: '#fff',
     borderRadius: wp('2%'),
-    margin: wp('1%'),
-    padding: wp('2%'),
+    padding: wp('4%'),
+    marginBottom: hp('2%'),
+    flexDirection: 'row',
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    position: 'relative',
+  },
+  heartIcon: {
+    position: 'absolute',
+    top: hp('1%'),
+    right: wp('3%'),
+    zIndex: 10,
+    padding: wp('1%'),
   },
   productImage: {
-    width: '100%',
-    height: wp('25%'),
-    borderRadius: wp('1%'),
-    marginBottom: hp('1%'),
+    width: wp('34%'),
+    height: hp('23%'),
+    borderRadius: wp('2%'),
+    resizeMode: 'cover',
   },
-  productInfo: {
+  productDetails: {
     flex: 1,
+    marginLeft: wp('3%'),
+    justifyContent: 'space-between',
   },
-  productName: {
-    fontSize: wp('3.5%'),
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: hp('1%'),
-    lineHeight: wp('4.5%'),
+  name: {
+    fontWeight: '700',
+    fontSize: wp('4.5%'),
+    marginBottom: hp('0.8%'),
+    textAlign: 'left',
+    paddingTop: hp('2%'),
   },
-  productPrice: {
-    fontSize: wp('4%'),
+  price: {
     fontWeight: 'bold',
-    color: '#007AFF',
+    fontSize: wp('4%'),
+    color: '#039809',
     marginBottom: hp('1%'),
+    textAlign: 'left',
   },
-  productActions: {
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: hp('0.5%'),
+  },
+  ratingBadge: {
+    flexDirection: 'row',
+    backgroundColor: '#f16774ff',
+    paddingHorizontal: wp('2%'),
+    paddingVertical: hp('0.3%'),
+    borderRadius: wp('1%'),
+    alignItems: 'center',
+  },
+  ratingText: {
+    fontSize: wp('3%'),
+    color: '#fff',
+    marginRight: wp('0.5%'),
+  },
+  star: {
+    fontSize: wp('3%'),
+    color: '#fff', // white star color for contrast on red background
+  },
+  quantityBox: {
+    borderWidth: 1,
+    borderColor: '#f5f5f5',
+    borderRadius: wp('2%'),
+    paddingVertical: hp('0.5%'),
+    paddingHorizontal: wp('2%'),
+    width: '100%',
+    alignItems: 'flex-start',
+    paddingLeft: wp('2%'),
+    backgroundColor: '#f5f5f5',
+  },
+  quantity: {
+    fontSize: wp('3.5%'),
+    color: '#666',
+    marginBottom: hp('0.5%'),
+    textAlign: 'left',
+  },
+  cutPrice: {
+    fontSize: wp('3.5%'),
+    color: '#999',
+    textDecorationLine: 'line-through',
+    marginBottom: hp('0.5%'),
+  },
+  priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  addToCartButton: {
-    padding: wp('2%'),
-  },
-  wishlistButton: {
-    padding: wp('2%'),
-  },
-  emptyContainer: {
-    flex: 1,
+  addButton: {
+    width: wp('28%'),
+    height: hp('4.5%'),
+    opacity: 1,
+    paddingTop: hp('1%'),
+    paddingRight: wp('6%'),
+    paddingBottom: hp('1%'),
+    paddingLeft: wp('6%'),
+    borderRadius: wp('2%'),
+    backgroundColor: '#F70D24',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: hp('10%'),
   },
-  emptyTitle: {
-    fontSize: wp('5%'),
+  addButtonText: {
+    color: '#fff',
     fontWeight: '600',
-    color: '#333',
-    marginTop: hp('3%'),
-    marginBottom: hp('1%'),
+    fontSize: wp('4%'),
+    borderRadius: wp('2%'),
   },
-  emptySubtitle: {
+  description: {
     fontSize: wp('3.5%'),
+    color: '#444',
+    marginBottom: hp('1%'),
+    textAlign: 'left',
+  },
+  detailsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  detailText: {
+    fontSize: wp('3%'),
     color: '#666',
+    flex: 1,
+    textAlign: 'left',
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: hp('2%'),
+    fontSize: wp('4%'),
+    color: '#999',
+  },
+  cartContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F70D24',
+    borderRadius: wp('2%'),
+    height: hp('4.5%'),
+    paddingHorizontal: wp('1%'),
+  },
+  quantityButton: {
+    paddingHorizontal: wp('3%'),
+    paddingVertical: hp('0.5%'),
+  },
+  quantityButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: wp('2%'),
+  },
+  countBox: {
+    backgroundColor: '#fff',
+      borderRadius: wp('1%'),
+    paddingHorizontal: wp('3%'),
+    paddingVertical: hp('1.2%'),
+    marginHorizontal: wp('2%'),
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: wp('10%'),
+  },
+  countText: {
+    color: '#F70D24',
+    fontWeight: 'bold',
+    fontSize: wp('4%'),
     textAlign: 'center',
   },
 });
-
-export default SubCategoryScreen;

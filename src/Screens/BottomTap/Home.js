@@ -1,186 +1,585 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
-  ScrollView,
+  TextInput,
   Image,
+  FlatList,
+  TouchableOpacity,
+  Dimensions,
+  Pressable,
+  ScrollView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  widthPercentageToDP as wp,
+  heightPercentageToDP as hp,
+} from 'react-native-responsive-screen';
+import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
+import SimpleDrawer from '../../Navigation/SimpleDrawer';
+import { HOMEPAGE_ENDPOINT, API_ACCESS_KEY } from '../../config/config';
 
-const Home = () => {
+const { width: screenWidth } = Dimensions.get('window');
+
+const HomeScreen = () => {
   const navigation = useNavigation();
+  const [data, setData] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [cartItems, setCartItems] = useState({}); // Track cart items and their quantities
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  const promotion = data?.section;
+
+  // Cart functions
+  const addToCart = item => {
+    const itemId = item.id || item.product_id;
+    setCartItems(prev => ({
+      ...prev,
+      [itemId]: (prev[itemId] || 0) + 1,
+    }));
+  };
+
+  const removeFromCart = item => {
+    const itemId = item.id || item.product_id;
+    setCartItems(prev => {
+      const newItems = { ...prev };
+      if (newItems[itemId] > 1) {
+        newItems[itemId] -= 1;
+      } else {
+        delete newItems[itemId];
+      }
+      return newItems;
+    });
+  };
+
+  const getItemQuantity = item => {
+    const itemId = item.id || item.product_id;
+    return cartItems[itemId] || 0;
+  };
+
+  // Cart Button Component
+  const CartButton = ({ item }) => {
+    const quantity = getItemQuantity(item);
+
+    if (quantity === 0) {
+      return (
+        <TouchableOpacity
+          style={{
+            backgroundColor: '#EF3340',
+            paddingVertical: hp('0.9%'),
+            paddingHorizontal: wp('6%'),
+            borderRadius: wp('1%'),
+            alignItems: 'center',
+            marginTop: hp('1%'),
+            //marginBottom: hp('1%'),
+            marginHorizontal: wp('3%'),
+            height: hp('4%'),
+            width: wp('80%'),
+            alignSelf: 'center',
+            marginBottom: hp('1%'),
+          }}
+          onPress={() => addToCart(item)}
+          activeOpacity={1}
+        >
+          <Text
+            style={{ color: '#fff', fontWeight: 'bold', fontSize: wp('3.5%') }}
+          >
+            Add to Cart
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginTop: hp('1%'),
+          gap: wp('3%'),
+          height: hp('4%'),
+          width: wp('80%'),
+          alignSelf: 'center',
+          marginHorizontal: wp('3%'),
+        }}
+      >
+                <TouchableOpacity
+          onPress={() => removeFromCart(item)}
+          style={{
+            width: wp('8%'),
+            height: wp('8%'),
+            backgroundColor: '#EF3340',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: wp('1%'),
+          }}
+          activeOpacity={1}
+        >
+          <View
+            style={{
+              width: wp('4%'),
+              height: wp('0.4%'),
+              backgroundColor: '#fff',
+            }}
+          />
+        </TouchableOpacity>
+        
+        <Text
+          style={{
+            color: '#333',
+            fontWeight: 'bold',
+            fontSize: wp('3%'),
+            minWidth: wp('6%'),
+            textAlign: 'center',
+          }}
+        >
+          {quantity}
+        </Text>
+        
+        <TouchableOpacity
+          onPress={() => addToCart(item)}
+          style={{
+            width: wp('8%'),
+            height: wp('8%'),
+            backgroundColor: '#EF3340',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: wp('1%'),
+          }}
+          activeOpacity={1}
+        >
+          <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+            <View
+              style={{
+                width: wp('4%'),
+                height: wp('0.4%'),
+                backgroundColor: '#fff',
+                position: 'absolute',
+              }}
+            />
+            <View
+              style={{
+                width: wp('0.4%'),
+                height: wp('4%'),
+                backgroundColor: '#fff',
+              }}
+            />
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const fetchHomePageData = async () => {
+    try {
+      const formData = new FormData();
+      formData.append('accesskey', API_ACCESS_KEY);
+      const response = await axios.post(HOMEPAGE_ENDPOINT, formData);
+      if (response.data && response.data.error === 'false') {
+        console.log('Fetched homepage data:', response.data.data);
+        return response.data.data;
+      } else {
+        console.error('API error:', response.data);
+        return null;
+      }
+    } catch (error) {
+      console.error('Error fetching homepage data:', error);
+      return null;
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    const res = await fetchHomePageData();
+    if (res) {
+      setData(res);
+      setCategories(res.category || []);
+      const prod =
+        res.section?.[0]?.products?.map(p => ({
+          name: p.name,
+          size: p.variants?.[0]?.measurement_unit_name || '',
+          price: `₹${p.variants?.[0]?.product_price || ''}`,
+          image: { uri: p.image },
+        })) || [];
+      setProducts(prod);
+    }
+    setRefreshing(false);
+  };
+
+  useEffect(() => {
+    const loadData = async () => {
+      const res = await fetchHomePageData();
+      if (res) {
+        setData(res);
+        setCategories(res.category || []);
+        const prod =
+          res.section?.[0]?.products?.map(p => ({
+            name: p.name,
+            size: p.variants?.[0]?.measurement_unit_name || '',
+            price: `₹${p.variants?.[0]?.product_price || ''}`,
+            image: { uri: p.image },
+          })) || [];
+        setProducts(prod);
+      }
+    };
+    loadData();
+  }, []);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ flexGrow: 1 }}
+      >
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={() => navigation.openDrawer()}
-        >
-          <Icon name="menu" size={24} color="#333" />
+        <View style={{ flexDirection: 'row', gap: wp('3.5%') }}>
+          <TouchableOpacity onPress={() => {
+            console.log('Menu button pressed, opening drawer');
+            alert('Opening drawer...');
+            setDrawerVisible(true);
+          }} activeOpacity={1}>
+            <Icon name="menu" size={wp('6%')} color="#fff" />
+          </TouchableOpacity>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: wp('2.5%') }}>
+          <Image
+            source={require('../../Assets/Images/Edit.png')}
+            style={{ width: wp('4%'), height: hp('2%'), tintColor: '#fff' }}
+          />
+          <Text style={styles.locationText}>Choose Location </Text>
+        </View>
+        <TouchableOpacity onPress={() => navigation.navigate('Cart')} activeOpacity={1}>
+          <Icon name="cart-outline" size={wp('6%')} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Spider E-Kart</Text>
-        <TouchableOpacity
-          style={styles.cartButton}
-          onPress={() => navigation.navigate('Cart')}
+        <TouchableOpacity 
+          onPress={() => {
+            console.log('Test drawer button pressed');
+            alert('Test button pressed!');
+            setDrawerVisible(!drawerVisible);
+          }} 
+          style={{ backgroundColor: 'yellow', padding: 10, marginLeft: 10 }}
+          activeOpacity={1}
         >
-          <Icon name="cart" size={24} color="#333" />
+          <Text style={{ color: 'black', fontSize: 12 }}>Test</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content}>
-        <View style={styles.welcomeSection}>
-          <Text style={styles.welcomeText}>Welcome to Spider E-Kart</Text>
-          <Text style={styles.subtitleText}>
-            Your one-stop shop for all your needs
-          </Text>
+      {/* Search Bar */}
+      <View style={styles.searchWrapper}>
+        <View style={styles.searchContainer}>
+          <Icon name="search" size={wp('5%')} color="#888" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search products.."
+            placeholderTextColor="#888"
+          />
         </View>
+      </View>
 
-        <View style={styles.quickActions}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('Category')}
+             {/* Banner */}
+       {data?.slider?.length > 0 && (
+         <ScrollView
+           horizontal
+           showsHorizontalScrollIndicator={false}
+           contentContainerStyle={{ paddingHorizontal: wp('1.2%') }}
+         >
+           {data.slider.map((item, index) => (
+             <Image
+               key={index}
+               source={{ uri: item.image }}
+               style={styles.banner}
+               resizeMode="cover"
+             />
+           ))}
+         </ScrollView>
+       )}
+
+      {/* Promotion Section */}
+      {data?.section
+        ?.filter(item => item.title === 'PROMOTION' && item.place === 'top')
+        .map(promo => (
+          <View
+            key={promo.id}
+            style={{
+              marginHorizontal: wp('4%'),
+              marginVertical: hp('1%'),
+              padding: wp('3%'),
+              backgroundColor: promo.style === 'style_1' ? '#f9fbfcff' : '#f6f7f7ff',
+              borderRadius: wp('2%'),
+            }}
           >
-            <Icon name="grid" size={32} color="#007AFF" />
-            <Text style={styles.actionText}>Categories</Text>
-          </TouchableOpacity>
+                         <Text style={{ fontSize: wp('4%'), fontWeight: '600', marginBottom: hp('0.5%') }}>
+               {promo.title}
+             </Text>
+             {promo.products?.length > 0 && (
+               <ScrollView
+                 horizontal
+                 showsHorizontalScrollIndicator={false}
+                 contentContainerStyle={{ paddingHorizontal: wp('2%') }}
+               >
+                 {promo.products.map((item, idx) => (
+                   <TouchableOpacity
+                     key={idx}
+                     onPress={() => navigation.navigate('ProductDetails', { product: item })}
+                     activeOpacity={1}
+                   >
+                     <View
+                       style={{
+                         width: wp('40%'),
+                         marginRight: wp('3%'),
+                         backgroundColor: '#edececff',
+                         borderRadius: wp('2%'),
+                         overflow: 'hidden',
+                         elevation: 2,
+                       }}
+                     >
+                       <Image
+                         source={{ uri: item.image }}
+                         style={{ width: '100%', height: hp('20%'), resizeMode: 'cover' }}
+                       />
+                                               <Text style={{ padding: wp('2%'), fontWeight: '500' }} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                       <View
+                         style={{
+                           flexDirection: 'row',
+                           alignItems: 'center',
+                           paddingHorizontal: wp('2%'),
+                           marginBottom: hp('0.5%'),
+                         }}
+                       >
+                         <Text style={{ color: '#888', fontSize: wp('3%'), flex: 1 }}>1 Pc</Text>
+                         <Text
+                           style={{
+                             color: 'green',
+                             fontWeight: 'bold',
+                             fontSize: wp('3.5%'),
+                             textAlign: 'right',
+                           }}
+                         >
+                           RM{item?.variants?.[0]?.product_price || ''}
+                         </Text>
+                       </View>
+                       <CartButton item={item} />
+                     </View>
+                   </TouchableOpacity>
+                 ))}
+               </ScrollView>
+             )}
+          </View>
+        ))}
 
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('Wishlist')}
-          >
-            <Icon name="heart" size={32} color="#FF3B30" />
-            <Text style={styles.actionText}>Wishlist</Text>
-          </TouchableOpacity>
+      {/* Category Section */}
+      <View>
+        <Text style={styles.sectionTitle}>Category</Text>
+        {categories?.length > 0 && (
+          <FlatList
+            data={categories}
+            numColumns={2}
+            keyExtractor={(item, index) => index.toString()}
+            scrollEnabled={false}
+            removeClippedSubviews={false}
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
+            windowSize={10}
+            getItemLayout={null}
+            disableVirtualization={true}
+            contentContainerStyle={{ paddingHorizontal: wp('2%'), paddingBottom: hp('1.5%') }}
+            columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: hp('1.5%') }}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.cardContainer}
+                onPress={() =>
+                  navigation.navigate('SubCategory', {
+                    category_id: item.id,
+                    subcategory_id: data?.section?.[0]?.products?.[0]?.subcategory_id,
+                    category_name: item.name,
+                  })
+                }
+                activeOpacity={1}
+              >
+                {item.image ? (
+                  <Image source={{ uri: item.image }} style={styles.cardImage} />
+                ) : (
+                  <View style={styles.placeholderCircle} />
+                )}
+                <Text style={styles.cardText}>{item.name}</Text>
+              </TouchableOpacity>
+            )}
+          />
+        )}
+      </View>
 
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('TrackOrder')}
-          >
-            <Icon name="receipt" size={32} color="#34C759" />
-            <Text style={styles.actionText}>Track Order</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('AddressPage')}
-          >
-            <Icon name="location" size={32} color="#FF9500" />
-            <Text style={styles.actionText}>Addresses</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.featuredSection}>
-          <Text style={styles.sectionTitle}>Featured Products</Text>
-          <Text style={styles.comingSoon}>Coming Soon...</Text>
-        </View>
-      </ScrollView>
-    </View>
+      {/* New Arrival Products Section */}
+      <View>
+        <Text style={styles.sectionTitle}>New arrival products</Text>
+        {products?.length > 0 && (
+          <FlatList
+            data={products}
+            numColumns={2}
+            scrollEnabled={false}
+            keyExtractor={(item, index) => index.toString()}
+            removeClippedSubviews={false}
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
+            windowSize={10}
+            getItemLayout={null}
+            disableVirtualization={true}
+            contentContainerStyle={{ paddingHorizontal: wp('2%'), paddingBottom: hp('1.5%') }}
+            columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: hp('1.5%') }}
+            renderItem={({ item }) => (
+              <View style={styles.cardContainer}>
+                <Image source={item.image} style={styles.cardImage} />
+                                 <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
+                <Text style={styles.productSize}>{item.size}</Text>
+                <Text style={styles.productPrice}>{item.price.replace('RM', 'RM')}</Text>
+                <CartButton item={item} />
+              </View>
+            )}
+          />
+        )}
+            </View>
+    </ScrollView>
+    <SimpleDrawer
+      visible={drawerVisible}
+      onClose={() => setDrawerVisible(false)}
+      navigation={navigation}
+    />
+  </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
   header: {
+    backgroundColor: '#e60023',
+    paddingVertical: hp('2%'),
+    paddingHorizontal: wp('4%'),
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  locationText: {
+    color: '#fff',
+    fontFamily: 'Poppins',
+    fontWeight: '500',
+    fontSize: wp('3.5%'),
+    lineHeight: wp('5.1%'),
+    letterSpacing: 0,
+  },
+  searchWrapper: {
+   
+    backgroundColor: '#fff',
+    paddingHorizontal: wp('4%'),
+    paddingVertical: hp('1%'),
+  },
+  searchContainer: {
+    borderRadius: wp('2%'),
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 15,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    paddingHorizontal: wp('3%'),
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  menuButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  cartButton: {
-    padding: 8,
-  },
-  content: {
+  searchInput: {
     flex: 1,
-    padding: 20,
+    height: hp('5%'),
+    fontSize: wp('3.5%'),
   },
-  welcomeSection: {
-    alignItems: 'center',
-    marginBottom: 30,
+  searchIcon: {
+    marginHorizontal: wp('2%'),
   },
-  welcomeText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  subtitleText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-  },
-  quickActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 30,
-  },
-  actionButton: {
-    width: '48%',
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  actionText: {
-    marginTop: 8,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  featuredSection: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+  banner: {
+    width: screenWidth - wp('2.5%'),
+    height: hp('25%'),
+    borderRadius: wp('3.5%'),
+    marginHorizontal: wp('1.2%'),
+    overflow: 'hidden',
+    paddingTop: hp('1%'),
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 15,
+    fontSize: wp('4.5%'),
+    fontWeight: '600',
+    marginHorizontal: wp('4%'),
+    marginTop: hp('2%'),
+    marginBottom: hp('1%'),
   },
-  comingSoon: {
-    fontSize: 16,
+  cardContainer: {
+    width: wp('45%'),
+    backgroundColor: '#fff',
+    borderRadius: wp('3%'),
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: wp('1%'),
+    alignItems: 'center',
+    paddingBottom: hp('1.5%'),
+    marginBottom: hp('2%'),
+    alignSelf: 'flex-start',
+  },
+  cardImage: {
+    width: '100%',
+    height: hp('26%'),
+    resizeMode: 'cover',
+  },
+  placeholderCircle: {
+    width: wp('15%'),
+    height: wp('15%'),
+    backgroundColor: '#ccc',
+    borderRadius: wp('7.5%'),
+  },
+  cardText: {
+    fontSize: wp('3.5%'),
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
+    paddingHorizontal: wp('2%'),
+    paddingTop: hp('1%'),
+  },
+  productName: {
+    fontSize: wp('3.5%'),
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
+    paddingHorizontal: wp('2%'),
+    paddingTop: hp('1%'),
+  },
+  productSize: {
+    fontSize: wp('3%'),
     color: '#666',
     textAlign: 'center',
-    fontStyle: 'italic',
+    paddingHorizontal: wp('2%'),
+  },
+  productPrice: {
+    fontSize: wp('3.5%'),
+    fontWeight: 'bold',
+    color: 'green',
+    textAlign: 'center',
+    paddingHorizontal: wp('2%'),
+    marginTop: hp('0.5%'),
+  },
+  addButton: {
+    backgroundColor: '#e60023',
+    paddingVertical: hp('0.8%'),
+    paddingHorizontal: wp('4%'),
+    borderRadius: wp('2%'),
+    marginTop: hp('1%'),
+  },
+  addButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: wp('3%'),
+    width: '100%',
+    height: '10%',
   },
 });
 
-export default Home;
+export default HomeScreen;

@@ -1,52 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
   StyleSheet,
+  Text,
+  View,
+  SafeAreaView,
   FlatList,
-  TouchableOpacity,
   Image,
-  Dimensions,
+  TouchableOpacity,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import axios from 'axios';
+import { useNavigation } from '@react-navigation/native';
+import { API_ACCESS_KEY, HOMEPAGE_ENDPOINT } from '../../config/config';
 import {
   widthPercentageToDP as wp,
   heightPercentageToDP as hp,
 } from 'react-native-responsive-screen';
-import Icon from 'react-native-vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
-import axios from 'axios';
-import { CATEGORY_ENDPOINT, API_ACCESS_KEY } from '../../config/config';
 
-const { width: screenWidth } = Dimensions.get('window');
-
-const CategoryScreen = () => {
-  const navigation = useNavigation();
+const Category = () => {
   const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchCategories = async () => {
-    try {
-      const formData = new FormData();
-      formData.append('accesskey', API_ACCESS_KEY);
-      const response = await axios.post(CATEGORY_ENDPOINT, formData);
-      if (response.data && response.data.error === 'false') {
-        setCategories(response.data.data || []);
-      }
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const navigation = useNavigation();
 
   useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const formData = new FormData();
+        formData.append('accesskey', API_ACCESS_KEY);
+        const response = await axios.post(HOMEPAGE_ENDPOINT, formData);
+        if (response.data && response.data.error === 'false') {
+          setCategories(response.data.data.category || []);
+        } else {
+          console.error('API error:', response.data);
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      }
+    };
     fetchCategories();
   }, []);
 
   const renderCategory = ({ item }) => (
     <TouchableOpacity
-      style={styles.categoryCard}
+      style={styles.cardContainer}
+      activeOpacity={0.7}
       onPress={() => {
         navigation.navigate('SubCategory', {
           category_id: item.id,
@@ -54,140 +49,91 @@ const CategoryScreen = () => {
         });
       }}
     >
-      <View style={styles.imageContainer}>
-        {item.image ? (
-          <Image source={{ uri: item.image }} style={styles.categoryImage} />
-        ) : (
-          <View style={styles.placeholderImage}>
-            <Icon name="image-outline" size={wp('8%')} color="#ccc" />
-          </View>
-        )}
-      </View>
-      <Text style={styles.categoryName}>{item.name}</Text>
-      <Text style={styles.categoryDescription}>
-        {item.description || 'Explore products in this category'}
+      {item.image ? (
+        <Image
+          source={{ uri: item.image }}
+          style={styles.cardImage}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={styles.placeholderBox} />
+      )}
+      <Text style={styles.cardText} numberOfLines={1}>
+        {item.name}
       </Text>
     </TouchableOpacity>
   );
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Icon name="arrow-back" size={wp('6%')} color="#333" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Categories</Text>
-          <View style={{ width: wp('6%') }} />
-        </View>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading categories...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={wp('6%')} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Categories</Text>
-        <View style={{ width: wp('6%') }} />
-      </View>
-
+    <SafeAreaView style={{ flex: 1 }}>
       <FlatList
         data={categories}
         renderItem={renderCategory}
-        keyExtractor={(item, index) => index.toString()}
+        keyExtractor={item => item.id.toString()}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContainer}
         numColumns={2}
-        columnWrapperStyle={styles.row}
+        removeClippedSubviews={false}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={10}
+        contentContainerStyle={{
+          paddingHorizontal: wp('2.5%'),
+          paddingVertical: hp('2%'),
+        }}
+        columnWrapperStyle={{ justifyContent: 'space-between' }}
       />
     </SafeAreaView>
   );
 };
 
+export default Category;
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
   header: {
+    backgroundColor: '#e60023',
+    height: hp('12%'),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: wp('4%'),
-    paddingVertical: hp('2%'),
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
   },
-  headerTitle: {
+  locationText: {
+    color: '#fff',
     fontSize: wp('4.5%'),
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: 'bold',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: wp('4%'),
-    color: '#666',
-  },
-  listContainer: {
-    padding: wp('2%'),
-  },
-  row: {
-    justifyContent: 'space-between',
-  },
-  categoryCard: {
-    width: '48%',
+  cardContainer: {
+    width: wp('45%'),
     backgroundColor: '#fff',
     borderRadius: wp('3%'),
-    marginBottom: hp('2%'),
-    padding: wp('3%'),
+    overflow: 'hidden',
     elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  imageContainer: {
+    shadowOpacity: 0.05,
+    shadowRadius: wp('1%'),
     alignItems: 'center',
-    marginBottom: hp('1%'),
+    paddingBottom: hp('1.5%'),
+    marginBottom: hp('2%'),
+    alignSelf: 'flex-start',
   },
-  categoryImage: {
-    width: wp('20%'),
-    height: wp('20%'),
-    borderRadius: wp('10%'),
+  cardImage: {
+    width: '100%',
+    height: hp('26%'),
     resizeMode: 'cover',
   },
-  placeholderImage: {
-    width: wp('20%'),
-    height: wp('20%'),
-    borderRadius: wp('10%'),
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
+  placeholderBox: {
+    width: wp('15%'),
+    height: wp('15%'),
+    borderRadius: wp('3%'),
+    backgroundColor: '#ccc',
+    marginBottom: hp('1.5%'),
   },
-  categoryName: {
+  cardText: {
     fontSize: wp('3.5%'),
     fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: hp('0.5%'),
     color: '#333',
-  },
-  categoryDescription: {
-    fontSize: wp('2.8%'),
     textAlign: 'center',
-    color: '#666',
-    lineHeight: wp('4%'),
+    paddingHorizontal: wp('2%'),
+    paddingTop: hp('1%'),
   },
 });
-
-export default CategoryScreen;

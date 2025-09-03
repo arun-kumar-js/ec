@@ -1,46 +1,146 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  StyleSheet,
   View,
   Text,
-  StyleSheet,
-  FlatList,
   TouchableOpacity,
+  Image,
+  FlatList,
+  ActivityIndicator,
+  Platform,
+  StatusBar,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  widthPercentageToDP as wp,
-  heightPercentageToDP as hp,
-} from 'react-native-responsive-screen';
-import Icon from 'react-native-vector-icons/Ionicons';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createStackNavigator } from '@react-navigation/stack';
+import Icon from 'react-native-vector-icons/Ionicons';
+import { fetchUserAddresses, deleteAddress } from '../Fuctions/AddressService';
 
-const AddressPageScreen = () => {
-  const navigation = useNavigation();
+const ChooseAddressScreen = ({ navigation }) => {
   const [addresses, setAddresses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [selectedAddressId, setSelectedAddressId] = useState(null);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      loadAddresses();
-    }, [])
-  );
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        console.log('=== ADDRESS PAGE LOADED ===');
 
-  const loadAddresses = async () => {
-    try {
-      const savedAddresses = await AsyncStorage.getItem('userAddresses');
-      if (savedAddresses) {
-        setAddresses(JSON.parse(savedAddresses));
+        // Check all AsyncStorage keys
+        const allKeys = await AsyncStorage.getAllKeys();
+        console.log('All AsyncStorage keys:', allKeys);
+
+        const storedUser = await AsyncStorage.getItem('userData');
+        console.log('Raw stored user data:', storedUser);
+
+        if (storedUser) {
+          const userObj = JSON.parse(storedUser);
+          setUser(userObj);
+          console.log('Parsed user object:', userObj);
+          console.log('User ID:', userObj.user_id || userObj.id);
+
+          // Test with hardcoded user ID first
+          console.log('=== TESTING WITH USER ID 1 ===');
+          const testAddresses = await fetchUserAddresses('1');
+          console.log('Test addresses result:', testAddresses);
+
+          // Now try with actual user ID
+          console.log('=== CALLING FETCH USER ADDRESSES ===');
+          console.log('User Object:', userObj);
+          console.log('User ID being passed:', userObj.user_id || userObj.id);
+          const addressesData = await fetchUserAddresses(
+            userObj.user_id || userObj.id,
+          );
+          setAddresses(addressesData);
+          // Set first address as default selected
+          if (addressesData.length > 0) {
+            setSelectedAddressId(addressesData[0].id);
+          }
+          console.log('=== ADDRESSES SET IN STATE ===');
+          console.log('Addresses Data:', addressesData);
+          console.log('Addresses Count:', addressesData.length);
+        } else {
+          console.warn('No user data found in AsyncStorage');
+          console.log('=== TESTING WITHOUT USER DATA ===');
+          // Test with hardcoded user ID
+          const testAddresses = await fetchUserAddresses('1');
+          console.log('Test addresses without user data:', testAddresses);
+          setAddresses(testAddresses);
+          // Set first address as default selected
+          if (testAddresses.length > 0) {
+            setSelectedAddressId(testAddresses[0].id);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching addresses:', error);
+        Alert.alert('Error', 'Failed to fetch addresses');
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error loading addresses:', error);
-    } finally {
-      setLoading(false);
-    }
+    };
+    fetchData();
+  }, []);
+
+  const renderItem = ({ item }) => {
+    const isSelected = selectedAddressId === item.id;
+
+    return (
+      <TouchableOpacity
+        style={[styles.addressCard, isSelected && styles.selectedAddressCard]}
+        onPress={() => setSelectedAddressId(item.id)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.addressContent}>
+          <TouchableOpacity
+            style={[
+              styles.radioButton,
+              isSelected && styles.selectedRadioButton,
+            ]}
+            onPress={() => setSelectedAddressId(item.id)}
+            activeOpacity={0.7}
+          >
+            {isSelected && <View style={styles.radioDot} />}
+          </TouchableOpacity>
+
+          <View style={styles.addressDetails}>
+            <Text style={styles.addressName}>{item.name}</Text>
+            <Text style={styles.addressText}>
+              {item.address}, {item.landmark}
+            </Text>
+            <Text style={styles.addressText}>
+              {item.city}, {item.state} - {item.pincode}
+            </Text>
+            <Text style={styles.addressText}>Mobile: {item.mobile}</Text>
+
+            <View style={styles.addressActions}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => {
+                  console.log('Edit address:', item.id);
+                  // TODO: Navigate to edit address screen
+                  Alert.alert('Edit', 'Edit functionality coming soon');
+                }}
+              >
+                <Icon name="pencil" size={16} color="#EF3340" />
+                <Text style={styles.actionButtonText}>Edit</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => handleDeleteAddress(item.id)}
+              >
+                <Icon name="trash-outline" size={16} color="#EF3340" />
+                <Text style={styles.actionButtonText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
   };
 
-  const deleteAddress = async (addressId) => {
+  const handleDeleteAddress = async addressId => {
     Alert.alert(
       'Delete Address',
       'Are you sure you want to delete this address?',
@@ -50,299 +150,350 @@ const AddressPageScreen = () => {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            try {
-              const updatedAddresses = addresses.filter(addr => addr.id !== addressId);
-              await AsyncStorage.setItem('userAddresses', JSON.stringify(updatedAddresses));
-              setAddresses(updatedAddresses);
-              Alert.alert('Success', 'Address deleted successfully');
-            } catch (error) {
-              console.error('Error deleting address:', error);
-              Alert.alert('Error', 'Failed to delete address');
+            if (user && (user.user_id || user.id)) {
+              const result = await deleteAddress(
+                addressId,
+                user.user_id || user.id,
+              );
+              if (result.success) {
+                // Refresh addresses after deletion
+                const updatedAddresses = await fetchUserAddresses(
+                  user.user_id || user.id,
+                );
+                setAddresses(updatedAddresses);
+                Alert.alert('Success', 'Address deleted successfully');
+              } else {
+                Alert.alert('Error', result.message);
+              }
             }
           },
         },
-      ]
+      ],
     );
   };
 
-  const setDefaultAddress = async (addressId) => {
-    try {
-      const updatedAddresses = addresses.map(addr => ({
-        ...addr,
-        isDefault: addr.id === addressId,
-      }));
-      await AsyncStorage.setItem('userAddresses', JSON.stringify(updatedAddresses));
-      setAddresses(updatedAddresses);
-      Alert.alert('Success', 'Default address updated');
-    } catch (error) {
-      console.error('Error setting default address:', error);
-      Alert.alert('Error', 'Failed to set default address');
+  const handleContinue = () => {
+    // Find the selected address
+    const selectedAddress = addresses.find(
+      addr => addr.id === selectedAddressId,
+    );
+    if (selectedAddress) {
+      // Navigate to checkout with selected address details
+      navigation.navigate('CheckOut', {
+        selectedAddress: {
+          name: selectedAddress.name,
+          address: selectedAddress.address,
+          mobile: selectedAddress.mobile,
+          email: selectedAddress.email || 'user@example.com', // fallback if email not available
+        },
+      });
+    } else {
+      Alert.alert('Error', 'Please select an address to continue');
     }
   };
 
-  const renderAddress = ({ item }) => (
-    <View style={styles.addressCard}>
-      <View style={styles.addressHeader}>
-        <View style={styles.addressInfo}>
-          <Text style={styles.addressName}>{item.name}</Text>
-          {item.isDefault && (
-            <View style={styles.defaultBadge}>
-              <Text style={styles.defaultText}>Default</Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.addressActions}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('AddAddress', { address: item })}
-          >
-            <Icon name="create-outline" size={wp('4%')} color="#007AFF" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => deleteAddress(item.id)}
-          >
-            <Icon name="trash-outline" size={wp('4%')} color="#ff4444" />
-          </TouchableOpacity>
-        </View>
-      </View>
-      
-      <Text style={styles.addressText}>{item.address}</Text>
-      <Text style={styles.addressText}>
-        {item.city}, {item.state} {item.pincode}
-      </Text>
-      <Text style={styles.addressPhone}>Phone: {item.phone}</Text>
-      
-      {!item.isDefault && (
-        <TouchableOpacity
-          style={styles.setDefaultButton}
-          onPress={() => setDefaultAddress(item.id)}
-        >
-          <Text style={styles.setDefaultText}>Set as Default</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Icon name="arrow-back" size={wp('6%')} color="#333" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>My Addresses</Text>
-          <View style={{ width: wp('6%') }} />
-        </View>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading addresses...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={wp('6%')} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Addresses</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('AddAddress')}>
-          <Icon name="add" size={wp('6%')} color="#007AFF" />
-        </TouchableOpacity>
-      </View>
-
-      {addresses.length === 0 ? (
+    <View style={styles.container}>
+      {loading ? (
+        <ActivityIndicator size="large" color="#EF3340" />
+      ) : addresses.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Icon name="location-outline" size={wp('20%')} color="#ccc" />
-          <Text style={styles.emptyTitle}>No addresses found</Text>
-          <Text style={styles.emptySubtitle}>
-            Add your first delivery address to get started
+          <Image
+            source={require('../Assets/Images/No-Address.png')}
+            style={styles.image}
+          />
+          <Text style={styles.title}>No Address Found</Text>
+          <Text style={styles.subtitle}>
+            Add your first address to continue
           </Text>
-          <TouchableOpacity
-            style={styles.addAddressButton}
-            onPress={() => navigation.navigate('AddAddress')}
-          >
-            <Text style={styles.addAddressText}>Add New Address</Text>
-          </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
-          data={addresses}
-          renderItem={renderAddress}
-          keyExtractor={(item) => item.id.toString()}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.addressList}
-        />
-      )}
-
-      {addresses.length > 0 && (
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={styles.addNewButton}
-            onPress={() => navigation.navigate('AddAddress')}
-          >
-            <Icon name="add" size={wp('5%')} color="#fff" />
-            <Text style={styles.addNewText}>Add New Address</Text>
-          </TouchableOpacity>
+        <View style={styles.listContainer}>
+          <FlatList
+            data={addresses}
+            keyExtractor={item => item.id.toString()}
+            renderItem={renderItem}
+            removeClippedSubviews={false}
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
+            windowSize={10}
+            contentContainerStyle={{ paddingBottom: 20 }}
+            style={{ width: '100%' }}
+          />
         </View>
       )}
-    </SafeAreaView>
+
+      <View style={styles.bottomButtons}>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => {
+            if (user && (user.user_id || user.id)) {
+              navigation.navigate('AddAddress', {
+                user_id: user.user_id || user.id,
+              });
+            }
+          }}
+        >
+          <Icon name="add" size={20} color="#FFFFFF" />
+          <Text style={styles.addButtonText}>Add New Address</Text>
+        </TouchableOpacity>
+
+        {addresses.length > 0 && (
+          <TouchableOpacity
+            style={styles.continueButton}
+            onPress={handleContinue}
+          >
+            <Text style={styles.continueButtonText}>Continue</Text>
+            <Icon name="arrow-forward" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+};
+
+const Stack = createStackNavigator();
+
+const AddressPage: React.FC = () => {
+  return (
+    <>
+      <StatusBar barStyle="light-content" backgroundColor="#EF3340" />
+      <Stack.Navigator
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: '#EF3340',
+            elevation: 0,
+            shadowOpacity: 0,
+          },
+          headerTintColor: '#FFFFFF',
+          headerTitleStyle: {
+            fontWeight: 'normal',
+            fontSize: 20,
+          },
+          headerTitleAlign: 'left',
+          headerShown: false,
+        }}
+      >
+        <Stack.Screen name="ChooseAddress" component={ChooseAddressScreen} />
+      </Stack.Navigator>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: wp('4%'),
-    paddingVertical: hp('2%'),
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  headerTitle: {
-    fontSize: wp('4.5%'),
-    fontWeight: '600',
-    color: '#333',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: wp('4%'),
-    color: '#666',
+    backgroundColor: '#FFFFFF',
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: wp('6%'),
+    justifyContent: 'center',
+    padding: 20,
   },
-  emptyTitle: {
-    fontSize: wp('5%'),
+  listContainer: {
+    flex: 1,
+    padding: 20,
+  },
+  image: {
+    width: 160,
+    height: 160,
+    marginBottom: 40,
+  },
+  title: {
+    fontSize: 18,
+    color: '#333333',
+    marginBottom: 10,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
     fontWeight: '600',
-    color: '#333',
-    marginTop: hp('3%'),
-    marginBottom: hp('1%'),
   },
-  emptySubtitle: {
-    fontSize: wp('3.5%'),
-    color: '#666',
+  subtitle: {
+    fontSize: 14,
+    color: '#666666',
     textAlign: 'center',
-    marginBottom: hp('4%'),
-  },
-  addAddressButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: wp('6%'),
-    paddingVertical: hp('2%'),
-    borderRadius: wp('2%'),
-  },
-  addAddressText: {
-    color: '#fff',
-    fontSize: wp('4%'),
-    fontWeight: '600',
-  },
-  addressList: {
-    padding: wp('4%'),
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
   },
   addressCard: {
+    backgroundColor: '#f8f9fa',
+    padding: 8,
+    borderRadius: 6,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  selectedAddressCard: {
+    borderColor: '#EF3340',
+    borderWidth: 2,
+    backgroundColor: '#fff5f5',
+  },
+  addressContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  selectionCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#ccc',
     backgroundColor: '#fff',
-    borderRadius: wp('2%'),
-    padding: wp('4%'),
-    marginBottom: hp('2%'),
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+    marginTop: 2,
+  },
+  selectedCircle: {
+    borderColor: '#28a745',
+    backgroundColor: '#28a745',
+  },
+  radioButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#ccc',
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+    marginTop: 2,
+  },
+  selectedRadioButton: {
+    borderColor: '#EF3340',
+    backgroundColor: '#fff',
+  },
+  radioDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF3340',
+  },
+  addressDetails: {
+    flex: 1,
   },
   addressHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: hp('2%'),
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  addressInfo: {
-    flex: 1,
+  addressType: {
+    fontSize: 12,
+    color: '#EF3340',
+    backgroundColor: '#ffe6e6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    fontWeight: '600',
+  },
+  deleteButton: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  addressName: {
-    fontSize: wp('4%'),
-    fontWeight: '600',
-    color: '#333',
-    marginRight: wp('2%'),
-  },
-  defaultBadge: {
-    backgroundColor: '#28a745',
-    paddingHorizontal: wp('2%'),
-    paddingVertical: hp('0.5%'),
-    borderRadius: wp('1%'),
-  },
-  defaultText: {
-    color: '#fff',
-    fontSize: wp('2.5%'),
-    fontWeight: '600',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    backgroundColor: '#FFF5F5',
+    borderWidth: 1,
+    borderColor: '#EF3340',
+    gap: 5,
   },
   addressActions: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 8,
+    gap: 8,
   },
   actionButton: {
-    padding: wp('2%'),
-    marginLeft: wp('1%'),
-  },
-  addressText: {
-    fontSize: wp('3.5%'),
-    color: '#666',
-    marginBottom: hp('0.5%'),
-  },
-  addressPhone: {
-    fontSize: wp('3.5%'),
-    color: '#666',
-    marginBottom: hp('2%'),
-  },
-  setDefaultButton: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: wp('3%'),
-    paddingVertical: hp('1%'),
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: '#007AFF',
-    borderRadius: wp('1%'),
+    borderColor: '#EF3340',
+    backgroundColor: '#fff',
+    gap: 3,
   },
-  setDefaultText: {
-    color: '#007AFF',
-    fontSize: wp('3%'),
+  actionButtonText: {
+    fontSize: 14,
+    color: '#EF3340',
     fontWeight: '500',
   },
-  footer: {
-    backgroundColor: '#fff',
-    padding: wp('4%'),
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    backgroundColor: '#F0F8FF',
+    borderWidth: 1,
+    borderColor: '#007AFF',
+    gap: 5,
   },
-  addNewButton: {
-    backgroundColor: '#007AFF',
+  editButtonText: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '500',
+  },
+  deleteButtonText: {
+    fontSize: 14,
+    color: '#EF3340',
+    fontWeight: '500',
+  },
+  addressName: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '600',
+    marginBottom: 5,
+  },
+  addressText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 3,
+    lineHeight: 20,
+  },
+  bottomButtons: {
+    flexDirection: 'row',
+    padding: 20,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
+    gap: 15,
+  },
+  addButton: {
+    flex: 1,
+    backgroundColor: '#EF3340',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: hp('2.5%'),
-    borderRadius: wp('2%'),
+    gap: 8,
   },
-  addNewText: {
-    color: '#fff',
-    fontSize: wp('4%'),
+  addButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '600',
-    marginLeft: wp('2%'),
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-medium',
+  },
+  continueButton: {
+    flex: 1,
+    backgroundColor: '#EF3340',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  continueButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-medium',
   },
 });
 
-export default AddressPageScreen;
+export default AddressPage;

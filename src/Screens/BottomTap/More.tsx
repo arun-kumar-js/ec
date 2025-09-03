@@ -1,341 +1,204 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
+  SafeAreaView,
+  StyleSheet,
   View,
   Text,
-  StyleSheet,
-  TouchableOpacity,
   ScrollView,
-  Alert,
-  Linking,
+  TouchableOpacity,
+  StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  widthPercentageToDP as wp,
-  heightPercentageToDP as hp,
-} from 'react-native-responsive-screen';
-import Icon from 'react-native-vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import Icon from 'react-native-vector-icons/FontAwesome';
 
-const MoreScreen = () => {
-  const navigation = useNavigation();
-  const [userData, setUserData] = useState(null);
+const ListItem = ({ icon, label, onPress }) => (
+  <TouchableOpacity style={styles.listItem} onPress={onPress}>
+    <Icon name={icon} size={24} color="#666" style={styles.listItemIcon} />
+    <Text style={styles.listItemText}>{label}</Text>
+  </TouchableOpacity>
+);
 
-  useEffect(() => {
-    loadUserData();
-  }, []);
-
-  const loadUserData = async () => {
-    try {
-      const user = await AsyncStorage.getItem('userData');
-      if (user) {
-        setUserData(JSON.parse(user));
-      }
-    } catch (error) {
-      console.error('Error loading user data:', error);
-    }
-  };
-
-  const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await AsyncStorage.multiRemove([
-                'userData',
-                'cartItems',
-                'wishlistItems',
-                'userToken',
-              ]);
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'AuthStack' }],
-              });
-            } catch (error) {
-              console.error('Error during logout:', error);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleContact = (type) => {
-    switch (type) {
-      case 'call':
-        Linking.openURL('tel:+919876543210');
-        break;
-      case 'whatsapp':
-        Linking.openURL('whatsapp://send?phone=919876543210&text=Hello, I need help.');
-        break;
-      case 'email':
-        Linking.openURL('mailto:support@spiderekart.com');
-        break;
-      case 'website':
-        Linking.openURL('https://spiderekart.com');
-        break;
-    }
-  };
-
+const More = () => {
   const menuItems = [
-    {
-      id: 'profile',
-      title: 'My Profile',
-      icon: 'person-outline',
-      onPress: () => navigation.navigate('Profile'),
-    },
-    {
-      id: 'orders',
-      title: 'My Orders',
-      icon: 'bag-outline',
-      onPress: () => navigation.navigate('TrackOrder'),
-    },
-    {
-      id: 'wishlist',
-      title: 'Wishlist',
-      icon: 'heart-outline',
-      onPress: () => navigation.navigate('WishList'),
-    },
-    {
-      id: 'addresses',
-      title: 'My Addresses',
-      icon: 'location-outline',
-      onPress: () => navigation.navigate('AddressPage'),
-    },
-    {
-      id: 'about',
-      title: 'About Us',
-      icon: 'information-circle-outline',
-      onPress: () => navigation.navigate('About'),
-    },
-    {
-      id: 'contact',
-      title: 'Contact Us',
-      icon: 'call-outline',
-      onPress: () => navigation.navigate('contact'),
-    },
-    {
-      id: 'faq',
-      title: 'FAQ',
-      icon: 'help-circle-outline',
-      onPress: () => navigation.navigate('Faq'),
-    },
-    {
-      id: 'privacy',
-      title: 'Privacy Policy',
-      icon: 'shield-outline',
-      onPress: () => navigation.navigate('PrivacyPolicy'),
-    },
-    {
-      id: 'terms',
-      title: 'Terms & Conditions',
-      icon: 'document-text-outline',
-      onPress: () => navigation.navigate('Terms'),
-    },
-    {
-      id: 'logout',
-      title: 'Logout',
-      icon: 'log-out-outline',
-      onPress: handleLogout,
-      color: '#ff4444',
-    },
+    { icon: 'shopping-bag', label: 'My Orders' },
+    { icon: 'bell', label: 'Notifications' },
+    { icon: 'phone', label: 'Contact Us' },
+    { icon: 'info-circle', label: 'About Us' },
+    { icon: 'star-o', label: 'Rate Us' },
+    { icon: 'share-alt', label: 'Share App' },
+    { icon: 'users', label: 'Refer & Earn' },
+    { icon: 'question-circle-o', label: 'FAQ' },
+    { icon: 'file-text-o', label: 'Terms & Conditions' },
+    { icon: 'shield', label: 'Privacy Policy' },
+    { icon: 'sign-out', label: 'Log Out' },
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>More</Text>
-      </View>
-
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* User Profile Section */}
-        <View style={styles.profileSection}>
-          <View style={styles.profileImage}>
-            <Icon name="person" size={wp('12%')} color="#fff" />
-          </View>
-          <View style={styles.profileInfo}>
-            <Text style={styles.userName}>
-              {userData?.name || 'Guest User'}
-            </Text>
-            <Text style={styles.userEmail}>
-              {userData?.email || 'guest@example.com'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Menu Items */}
-        <View style={styles.menuSection}>
-          {menuItems.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.menuItem}
-              onPress={item.onPress}
-            >
-              <View style={styles.menuItemLeft}>
-                <Icon
-                  name={item.icon}
-                  size={wp('5%')}
-                  color={item.color || '#333'}
-                />
-                <Text style={[styles.menuItemText, item.color && { color: item.color }]}>
-                  {item.title}
-                </Text>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor="#EE2737" />
+      <View style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.header}>
+            <View style={styles.profileContainer}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>VM</Text>
               </View>
-              <Icon name="chevron-forward" size={wp('4%')} color="#ccc" />
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Quick Contact */}
-        <View style={styles.contactSection}>
-          <Text style={styles.sectionTitle}>Quick Contact</Text>
-          <View style={styles.contactButtons}>
-            <TouchableOpacity
-              style={styles.contactButton}
-              onPress={() => handleContact('call')}
-            >
-              <Icon name="call" size={wp('5%')} color="#fff" />
-              <Text style={styles.contactButtonText}>Call</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.contactButton, { backgroundColor: '#25D366' }]}
-              onPress={() => handleContact('whatsapp')}
-            >
-              <Icon name="logo-whatsapp" size={wp('5%')} color="#fff" />
-              <Text style={styles.contactButtonText}>WhatsApp</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.contactButton, { backgroundColor: '#007AFF' }]}
-              onPress={() => handleContact('email')}
-            >
-              <Icon name="mail" size={wp('5%')} color="#fff" />
-              <Text style={styles.contactButtonText}>Email</Text>
+              <View style={styles.profileInfo}>
+                <Text style={styles.profileName}>Veeramani</Text>
+                <Text style={styles.profilePhone}>9176123456</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.editProfileButton}>
+              <Text style={styles.editProfileButtonText}>Edit Profile</Text>
             </TouchableOpacity>
           </View>
-        </View>
 
-        {/* App Version */}
-        <View style={styles.versionSection}>
-          <Text style={styles.versionText}>Version 1.0.0</Text>
-        </View>
-      </ScrollView>
+          <View style={styles.walletBalanceContainer}>
+            <Text style={styles.walletBalanceText}>Wallet Balance</Text>
+            <Text style={styles.walletBalanceAmount}>₹ 0.00</Text>
+          </View>
+
+          <View style={styles.listContainer}>
+            {menuItems.map((item, index) => (
+              <ListItem
+                key={index}
+                icon={item.icon}
+                label={item.label}
+                onPress={() => {}}
+              />
+            ))}
+          </View>
+        </ScrollView>
+      </View>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#EE2737',
+  },
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F5F5F5',
+  },
+  scrollContent: {
+    paddingBottom: 80, // Space for the bottom nav
   },
   header: {
-    backgroundColor: '#fff',
-    paddingHorizontal: wp('4%'),
-    paddingVertical: hp('2%'),
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  headerTitle: {
-    fontSize: wp('5%'),
-    fontWeight: '600',
-    color: '#333',
-  },
-  content: {
-    flex: 1,
-  },
-  profileSection: {
-    backgroundColor: '#fff',
-    padding: wp('4%'),
-    marginBottom: hp('2%'),
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  profileImage: {
-    width: wp('15%'),
-    height: wp('15%'),
-    borderRadius: wp('7.5%'),
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: wp('3%'),
-  },
-  profileInfo: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: wp('4%'),
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: hp('0.5%'),
-  },
-  userEmail: {
-    fontSize: wp('3.5%'),
-    color: '#666',
-  },
-  menuSection: {
-    backgroundColor: '#fff',
-    marginBottom: hp('2%'),
-  },
-  menuItem: {
+    backgroundColor: '#EE2737',
+    paddingHorizontal: 20,
+    paddingVertical: 25,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: wp('4%'),
-    paddingVertical: hp('2.5%'),
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
-  menuItemLeft: {
+  profileContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  menuItemText: {
-    fontSize: wp('4%'),
+  avatar: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  avatarText: {
+    color: '#EE2737',
+    fontSize: 28,
+    fontWeight: 'bold',
+  },
+  profileInfo: {},
+  profileName: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: 'bold',
+  },
+  profilePhone: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    marginTop: 2,
+  },
+  editProfileButton: {
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+    borderRadius: 5,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+  },
+  editProfileButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  walletBalanceContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  walletBalanceText: {
+    fontSize: 17,
+    color: '#EE2737',
+  },
+  walletBalanceAmount: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#EE2737',
+  },
+  listContainer: {
+    backgroundColor: '#FFFFFF',
+  },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  listItemIcon: {
+    width: 30,
+    textAlign: 'center',
+  },
+  listItemText: {
+    fontSize: 17,
     color: '#333',
-    marginLeft: wp('3%'),
+    marginLeft: 20,
   },
-  contactSection: {
-    backgroundColor: '#fff',
-    padding: wp('4%'),
-    marginBottom: hp('2%'),
-  },
-  sectionTitle: {
-    fontSize: wp('4%'),
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: hp('2%'),
-  },
-  contactButtons: {
+  bottomNav: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-around',
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+    paddingVertical: 8,
+    paddingBottom: 5,
   },
-  contactButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: wp('4%'),
-    paddingVertical: hp('1.5%'),
-    borderRadius: wp('2%'),
+  tabItem: {
     alignItems: 'center',
-    minWidth: wp('20%'),
+    justifyContent: 'center',
+    flex: 1,
   },
-  contactButtonText: {
-    color: '#fff',
-    fontSize: wp('3%'),
-    marginTop: hp('0.5%'),
+  tabLabel: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 4,
   },
-  versionSection: {
-    alignItems: 'center',
-    paddingVertical: hp('3%'),
-  },
-  versionText: {
-    fontSize: wp('3%'),
-    color: '#999',
+  activeTabLabel: {
+    color: '#EE2737',
   },
 });
 
-export default MoreScreen;
+export default More;

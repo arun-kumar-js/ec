@@ -1,251 +1,248 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
+  StyleSheet,
   View,
   Text,
-  StyleSheet,
-  ScrollView,
   TouchableOpacity,
-  Alert,
+  TextInput,
+  ScrollView,
+  SafeAreaView,
+  StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  widthPercentageToDP as wp,
-  heightPercentageToDP as hp,
-} from 'react-native-responsive-screen';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const CheckOutScreen = () => {
+const CheckOutScreen = ({ route }) => {
   const navigation = useNavigation();
-  const [cartItems, setCartItems] = useState([]);
-  const [selectedAddress, setSelectedAddress] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState('cod');
-  const [loading, setLoading] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [deliveryMethod, setDeliveryMethod] = useState('');
+  const [showDeliveryOptions, setShowDeliveryOptions] = useState(false);
 
-  useEffect(() => {
-    loadCartItems();
-    loadDefaultAddress();
-  }, []);
-
-  const loadCartItems = async () => {
-    try {
-      const items = await AsyncStorage.getItem('cartItems');
-      if (items) {
-        setCartItems(JSON.parse(items));
-      }
-    } catch (error) {
-      console.error('Error loading cart items:', error);
-    }
+  // Get selected address from route params
+  const selectedAddress = route.params?.selectedAddress || {
+    name: 'Veeramani',
+    address: 'No 23, 5th street, little mount, Saidapet, Chennai - 600015',
+    mobile: '9176123456',
+    email: 'veeramani23@gmail.com',
   };
 
-  const loadDefaultAddress = async () => {
-    try {
-      const addresses = await AsyncStorage.getItem('userAddresses');
-      if (addresses) {
-        const addressList = JSON.parse(addresses);
-        if (addressList.length > 0) {
-          setSelectedAddress(addressList[0]);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading addresses:', error);
-    }
+  const orderItems = [
+    {
+      id: 1,
+      name: 'Neem & Turmeric Soap',
+      qty: 1,
+      price: 3.0,
+      subtotal: 3.0,
+      cg: 0.2,
+    },
+  ];
+
+  const calculateTotals = () => {
+    const subtotal = orderItems.reduce((sum, item) => sum + item.subtotal, 0);
+    const tax = orderItems.reduce((sum, item) => sum + item.cg, 0);
+    const taxableAmount = subtotal - tax;
+    const deliveryCharge = 0.0;
+    const total = subtotal + deliveryCharge;
+
+    return {
+      taxableAmount,
+      tax,
+      subtotal,
+      deliveryCharge,
+      total,
+    };
   };
 
-  const calculateSubtotal = () => {
-    return cartItems.reduce((total, item) => {
-      return total + (parseFloat(item.price) * item.quantity);
-    }, 0);
-  };
+  const totals = calculateTotals();
 
-  const calculateTotal = () => {
-    const subtotal = calculateSubtotal();
-    const deliveryFee = subtotal > 500 ? 0 : 50;
-    return subtotal + deliveryFee;
-  };
-
-  const handlePlaceOrder = async () => {
-    if (!selectedAddress) {
-      Alert.alert('Error', 'Please select a delivery address');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Simulate order placement
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Clear cart after successful order
-      await AsyncStorage.removeItem('cartItems');
-      
-      Alert.alert(
-        'Order Placed Successfully!',
-        'Your order has been placed and will be delivered soon.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'MainStack' }],
-              });
-            },
-          },
-        ]
-      );
-    } catch (error) {
-      console.error('Error placing order:', error);
-      Alert.alert('Error', 'Failed to place order. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const renderOrderItem = ({ item }) => (
-    <View style={styles.orderItem}>
-      <View style={styles.itemInfo}>
-        <Text style={styles.itemName} numberOfLines={2}>
-          {item.name}
-        </Text>
-        <Text style={styles.itemQuantity}>Qty: {item.quantity}</Text>
-      </View>
-      <Text style={styles.itemPrice}>₹{(parseFloat(item.price) * item.quantity).toFixed(2)}</Text>
-    </View>
-  );
-
-  const renderAddressSection = () => (
-    <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <Icon name="location-outline" size={wp('5%')} color="#007AFF" />
-        <Text style={styles.sectionTitle}>Delivery Address</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('AddressPage')}>
-          <Text style={styles.changeText}>Change</Text>
-        </TouchableOpacity>
-      </View>
-      
-      {selectedAddress ? (
-        <View style={styles.addressCard}>
-          <Text style={styles.addressName}>{selectedAddress.name}</Text>
-          <Text style={styles.addressText}>{selectedAddress.address}</Text>
-          <Text style={styles.addressText}>
-            {selectedAddress.city}, {selectedAddress.state} {selectedAddress.pincode}
-          </Text>
-          <Text style={styles.addressPhone}>Phone: {selectedAddress.phone}</Text>
-        </View>
-      ) : (
-        <TouchableOpacity
-          style={styles.addAddressButton}
-          onPress={() => navigation.navigate('AddAddress')}
-        >
-          <Icon name="add" size={wp('5%')} color="#007AFF" />
-          <Text style={styles.addAddressText}>Add Delivery Address</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-
-  const renderPaymentSection = () => (
-    <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <Icon name="card-outline" size={wp('5%')} color="#007AFF" />
-        <Text style={styles.sectionTitle}>Payment Method</Text>
-      </View>
-      
-      <TouchableOpacity
-        style={[
-          styles.paymentOption,
-          paymentMethod === 'cod' && styles.selectedPaymentOption,
-        ]}
-        onPress={() => setPaymentMethod('cod')}
-      >
-        <Icon name="cash-outline" size={wp('5%')} color="#007AFF" />
-        <Text style={styles.paymentText}>Cash on Delivery</Text>
-        {paymentMethod === 'cod' && (
-          <Icon name="checkmark-circle" size={wp('5%')} color="#007AFF" />
-        )}
-      </TouchableOpacity>
-      
-      <TouchableOpacity
-        style={[
-          styles.paymentOption,
-          paymentMethod === 'online' && styles.selectedPaymentOption,
-        ]}
-        onPress={() => setPaymentMethod('online')}
-      >
-        <Icon name="card" size={wp('5%')} color="#007AFF" />
-        <Text style={styles.paymentText}>Online Payment</Text>
-        {paymentMethod === 'online' && (
-          <Icon name="checkmark-circle" size={wp('5%')} color="#007AFF" />
-        )}
-      </TouchableOpacity>
-    </View>
-  );
+  const deliveryOptions = [
+    { id: 'standard', name: 'Standard Delivery (2-3 days)', price: 0 },
+    { id: 'express', name: 'Express Delivery (1 day)', price: 50 },
+    { id: 'same_day', name: 'Same Day Delivery', price: 100 },
+  ];
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor="#EF3340" barStyle="light-content" />
+
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={wp('6%')} color="#333" />
+          <Icon name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Checkout</Text>
-        <View style={{ width: wp('6%') }} />
+        <View style={{ width: 24 }} />
+      </View>
+
+      {/* Progress Indicator */}
+      <View style={styles.progressContainer}>
+        <View style={styles.progressStep}>
+          <View style={[styles.progressDot, styles.activeDot]}>
+            <Icon name="checkmark" size={16} color="white" />
+          </View>
+          <Text style={[styles.progressText, styles.activeProgressText]}>
+            Delivery
+          </Text>
+        </View>
+        <View style={styles.progressArrow}>
+          <Icon name="chevron-forward" size={20} color="#EF3340" />
+        </View>
+        <View style={styles.progressStep}>
+          <View style={styles.progressDot}>
+            <Text style={styles.progressNumber}>2</Text>
+          </View>
+          <Text style={styles.progressText}>Payment</Text>
+        </View>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {renderAddressSection()}
-        {renderPaymentSection()}
-
-        {/* Order Summary */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Icon name="receipt-outline" size={wp('5%')} color="#007AFF" />
-            <Text style={styles.sectionTitle}>Order Summary</Text>
+        {/* Delivery Address Section */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Delivery Address</Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('AddressPage')}
+            >
+              <Icon name="create-outline" size={20} color="#EF3340" />
+            </TouchableOpacity>
           </View>
-          
-          {cartItems.map((item, index) => (
-            <View key={index} style={styles.orderItem}>
-              <View style={styles.itemInfo}>
-                <Text style={styles.itemName} numberOfLines={2}>
-                  {item.name}
-                </Text>
-                <Text style={styles.itemQuantity}>Qty: {item.quantity}</Text>
-              </View>
-              <Text style={styles.itemPrice}>
-                ₹{(parseFloat(item.price) * item.quantity).toFixed(2)}
-              </Text>
+          <View style={styles.addressContent}>
+            <Text style={styles.addressName}>{selectedAddress.name}</Text>
+            <Text style={styles.addressText}>{selectedAddress.address}</Text>
+            <Text style={styles.addressText}>
+              Mobile: {selectedAddress.mobile}
+            </Text>
+            <Text style={styles.addressText}>
+              Email: {selectedAddress.email}
+            </Text>
+          </View>
+        </View>
+
+        {/* Promo Code Section */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Have a Promo Code?</Text>
+            <TouchableOpacity>
+              <Icon name="refresh-outline" size={20} color="#EF3340" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.promoContainer}>
+            <TextInput
+              style={styles.promoInput}
+              placeholder="Promo Code"
+              placeholderTextColor="#999"
+              value={promoCode}
+              onChangeText={setPromoCode}
+            />
+            <TouchableOpacity style={styles.applyButton}>
+              <Text style={styles.applyButtonText}>Apply</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Delivery Method Section */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Delivery Method</Text>
+          <TouchableOpacity
+            style={styles.deliverySelector}
+            onPress={() => setShowDeliveryOptions(!showDeliveryOptions)}
+          >
+            <Text
+              style={
+                deliveryMethod ? styles.deliveryText : styles.placeholderText
+              }
+            >
+              {deliveryMethod || 'Select Delivery Method'}
+            </Text>
+            <Icon name="chevron-down" size={20} color="#666" />
+          </TouchableOpacity>
+
+          {showDeliveryOptions && (
+            <View style={styles.deliveryOptions}>
+              {deliveryOptions.map(option => (
+                <TouchableOpacity
+                  key={option.id}
+                  style={styles.deliveryOption}
+                  onPress={() => {
+                    setDeliveryMethod(option.name);
+                    setShowDeliveryOptions(false);
+                  }}
+                >
+                  <Text style={styles.deliveryOptionText}>{option.name}</Text>
+                  <Text style={styles.deliveryOptionPrice}>
+                    {option.price > 0 ? `₹${option.price}` : 'Free'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Order Summary Section */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Order Summary</Text>
+
+          {/* Table Header */}
+          <View style={styles.tableHeader}>
+            <Text style={styles.tableHeaderText}>Product Name</Text>
+            <Text style={styles.tableHeaderText}>Qty</Text>
+            <Text style={styles.tableHeaderText}>Price</Text>
+            <Text style={styles.tableHeaderText}>Subtotal</Text>
+            <Text style={styles.tableHeaderText}>CG</Text>
+          </View>
+
+          {/* Table Rows */}
+          {orderItems.map(item => (
+            <View key={item.id} style={styles.tableRow}>
+              <Text style={styles.tableCell}>{item.name}</Text>
+              <Text style={styles.tableCell}>{item.qty}</Text>
+              <Text style={styles.tableCell}>₹{item.price.toFixed(2)}</Text>
+              <Text style={styles.tableCell}>₹{item.subtotal.toFixed(2)}</Text>
+              <Text style={styles.tableCell}>₹{item.cg.toFixed(2)}</Text>
             </View>
           ))}
+
+          {/* Summary Breakdown */}
+          <View style={styles.summaryBreakdown}>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Taxable Amount</Text>
+              <Text style={styles.summaryValue}>
+                ₹{totals.taxableAmount.toFixed(2)}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Tax</Text>
+              <Text style={styles.summaryValue}>
+                + ₹{totals.tax.toFixed(2)}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Subtotal</Text>
+              <Text style={styles.summaryValue}>
+                ₹{totals.subtotal.toFixed(2)}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Delivery Charge</Text>
+              <Text style={styles.summaryValue}>
+                ₹{totals.deliveryCharge.toFixed(1)}
+              </Text>
+            </View>
+          </View>
         </View>
       </ScrollView>
 
-      {/* Order Total */}
-      <View style={styles.totalSection}>
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Subtotal:</Text>
-          <Text style={styles.totalValue}>₹{calculateSubtotal().toFixed(2)}</Text>
-        </View>
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Delivery Fee:</Text>
-          <Text style={styles.totalValue}>
-            {calculateSubtotal() > 500 ? 'Free' : '₹50.00'}
+      {/* Bottom Navigation */}
+      <View style={styles.bottomBar}>
+        <View style={styles.totalSection}>
+          <Icon name="information-circle-outline" size={20} color="#666" />
+          <Text style={styles.totalText}>
+            Total : ₹{totals.total.toFixed(2)}
           </Text>
         </View>
-        <View style={[styles.totalRow, styles.finalTotal]}>
-          <Text style={styles.finalTotalLabel}>Total:</Text>
-          <Text style={styles.finalTotalValue}>₹{calculateTotal().toFixed(2)}</Text>
-        </View>
-        
-        <TouchableOpacity
-          style={[styles.placeOrderButton, loading && styles.placeOrderButtonDisabled]}
-          onPress={handlePlaceOrder}
-          disabled={loading}
-        >
-          {loading ? (
-            <Text style={styles.placeOrderText}>Placing Order...</Text>
-          ) : (
-            <Text style={styles.placeOrderText}>Place Order</Text>
-          )}
+        <TouchableOpacity style={styles.confirmButton}>
+          <Text style={styles.confirmButtonText}>Confirm</Text>
+          <Icon name="chevron-forward" size={20} color="white" />
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -258,179 +255,245 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
+    backgroundColor: '#EF3340',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: wp('4%'),
-    paddingVertical: hp('2%'),
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   headerTitle: {
-    fontSize: wp('4.5%'),
-    fontWeight: '600',
-    color: '#333',
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
-  content: {
-    flex: 1,
-  },
-  section: {
-    backgroundColor: '#fff',
-    marginBottom: hp('2%'),
-    padding: wp('4%'),
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: hp('2%'),
-  },
-  sectionTitle: {
-    fontSize: wp('4%'),
-    fontWeight: '600',
-    color: '#333',
-    marginLeft: wp('2%'),
-    flex: 1,
-  },
-  changeText: {
-    fontSize: wp('3.5%'),
-    color: '#007AFF',
-    fontWeight: '500',
-  },
-  addressCard: {
-    backgroundColor: '#f9f9f9',
-    padding: wp('3%'),
-    borderRadius: wp('2%'),
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  addressName: {
-    fontSize: wp('4%'),
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: hp('1%'),
-  },
-  addressText: {
-    fontSize: wp('3.5%'),
-    color: '#666',
-    marginBottom: hp('0.5%'),
-  },
-  addressPhone: {
-    fontSize: wp('3.5%'),
-    color: '#666',
-    marginTop: hp('1%'),
-  },
-  addAddressButton: {
+  progressContainer: {
+    backgroundColor: 'white',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: wp('4%'),
-    borderWidth: 2,
-    borderColor: '#007AFF',
-    borderStyle: 'dashed',
-    borderRadius: wp('2%'),
+    paddingVertical: 16,
+    paddingHorizontal: 20,
   },
-  addAddressText: {
-    fontSize: wp('4%'),
-    color: '#007AFF',
-    marginLeft: wp('2%'),
-  },
-  paymentOption: {
-    flexDirection: 'row',
+  progressStep: {
     alignItems: 'center',
-    padding: wp('3%'),
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: wp('2%'),
-    marginBottom: hp('1%'),
   },
-  selectedPaymentOption: {
-    borderColor: '#007AFF',
-    backgroundColor: '#f0f8ff',
-  },
-  paymentText: {
-    fontSize: wp('4%'),
-    color: '#333',
-    marginLeft: wp('2%'),
-    flex: 1,
-  },
-  orderItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  progressDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#ddd',
     alignItems: 'center',
-    paddingVertical: hp('1%'),
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    justifyContent: 'center',
+    marginBottom: 4,
   },
-  itemInfo: {
-    flex: 1,
+  activeDot: {
+    backgroundColor: '#EF3340',
   },
-  itemName: {
-    fontSize: wp('3.5%'),
-    color: '#333',
-    fontWeight: '500',
-  },
-  itemQuantity: {
-    fontSize: wp('3%'),
+  progressNumber: {
     color: '#666',
-    marginTop: hp('0.5%'),
-  },
-  itemPrice: {
-    fontSize: wp('4%'),
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  totalSection: {
-    backgroundColor: '#fff',
-    padding: wp('4%'),
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: hp('1%'),
-  },
-  totalLabel: {
-    fontSize: wp('4%'),
-    color: '#666',
-  },
-  totalValue: {
-    fontSize: wp('4%'),
-    color: '#333',
-    fontWeight: '500',
-  },
-  finalTotal: {
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingTop: hp('2%'),
-    marginTop: hp('1%'),
-  },
-  finalTotalLabel: {
-    fontSize: wp('5%'),
-    color: '#333',
-    fontWeight: '600',
-  },
-  finalTotalValue: {
-    fontSize: wp('5%'),
-    color: '#007AFF',
+    fontSize: 12,
     fontWeight: 'bold',
   },
-  placeOrderButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: hp('2.5%'),
-    borderRadius: wp('2%'),
+  progressText: {
+    fontSize: 12,
+    color: '#666',
+  },
+  activeProgressText: {
+    color: '#EF3340',
+    fontWeight: 'bold',
+  },
+  progressArrow: {
+    marginHorizontal: 16,
+  },
+  content: {
+    flex: 1,
+    padding: 16,
+  },
+  card: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: hp('2%'),
+    marginBottom: 12,
   },
-  placeOrderButtonDisabled: {
-    backgroundColor: '#ccc',
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#EF3340',
   },
-  placeOrderText: {
-    color: '#fff',
-    fontSize: wp('4%'),
-    fontWeight: '600',
+  addressContent: {
+    gap: 4,
+  },
+  addressName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  addressText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+  },
+  promoContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  promoInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+  },
+  applyButton: {
+    backgroundColor: '#EF3340',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  applyButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  deliverySelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  deliveryText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  placeholderText: {
+    fontSize: 14,
+    color: '#999',
+  },
+  deliveryOptions: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 6,
+  },
+  deliveryOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  deliveryOptionText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  deliveryOptionPrice: {
+    fontSize: 14,
+    color: '#EF3340',
+    fontWeight: 'bold',
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#f8f8f8',
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  tableHeaderText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#666',
+    textAlign: 'center',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  tableCell: {
+    flex: 1,
+    fontSize: 12,
+    color: '#333',
+    textAlign: 'center',
+  },
+  summaryBreakdown: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  summaryLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  summaryValue: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  bottomBar: {
+    backgroundColor: 'white',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  totalSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  totalText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  confirmButton: {
+    backgroundColor: '#EF3340',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 6,
+    gap: 8,
+  },
+  confirmButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

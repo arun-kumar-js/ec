@@ -1,295 +1,363 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  StyleSheet,
   View,
   Text,
-  StyleSheet,
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
+  Image,
+  SafeAreaView,
+  StatusBar,
+  Modal,
+  FlatList,
+  TouchableWithoutFeedback,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import axios from 'axios';
+import Icon from 'react-native-vector-icons/FontAwesome';
 import {
   widthPercentageToDP as wp,
   heightPercentageToDP as hp,
 } from 'react-native-responsive-screen';
-import Icon from 'react-native-vector-icons/Ionicons';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  ADD_NEW_ADDRESS_STATE,
+  ADD_NEW_ADDRESS_CITY,
+  ADD_NEW_ADDRESS_AREA,
+  API_ACCESS_KEY,
+} from '../config/config';
 
-const AddAddressScreen = () => {
-  const navigation = useNavigation();
-  const route = useRoute();
-  const { address } = route.params || {};
-  
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    address: '',
-    city: '',
-    state: '',
-    pincode: '',
-    isDefault: false,
-  });
-  const [loading, setLoading] = useState(false);
+const HEADER_COLOR = '#F40612';
+const BACKGROUND_COLOR = '#FFFFFF';
+const BORDER_COLOR = '#C5C5C5';
+const TEXT_COLOR_DARK = '#333333';
+const TEXT_COLOR_MEDIUM = '#555555';
+const BORDER_BOTTOM_COLOR = '#EAEAEA';
+
+const DropdownSelector = ({ label, onPress }) => (
+  <TouchableOpacity style={styles.dropdownContainer} onPress={onPress}>
+    <Text style={styles.dropdownText}>{label}</Text>
+    <Icon name="caret-down" size={24} color={TEXT_COLOR_MEDIUM} />
+  </TouchableOpacity>
+);
+
+const AddAddress = () => {
+  const [states, setStates] = useState([]);
+  const [cities, setCities] = useState([]);
+
+  const [selectedState, setSelectedState] = useState(null);
+  const [selectedCity, setSelectedCity] = useState(null);
+
+  const [stateModalVisible, setStateModalVisible] = useState(false);
+  const [cityModalVisible, setCityModalVisible] = useState(false);
 
   useEffect(() => {
-    if (address) {
-      setFormData({
-        name: address.name || '',
-        phone: address.phone || '',
-        address: address.address || '',
-        city: address.city || '',
-        state: address.state || '',
-        pincode: address.pincode || '',
-        isDefault: address.isDefault || false,
-      });
-    }
-  }, [address]);
+    // Fetch all states on mount
+    const formData = new FormData();
+    formData.append('accesskey', API_ACCESS_KEY);
 
-  const updateFormData = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value,
-    }));
+    axios
+      .post(ADD_NEW_ADDRESS_STATE, formData)
+      .then(res => {
+        console.log('Fetched states:', res.data); // Added console.log for debugging
+        setStates(res.data.data || []); // Adjusted to use res.data.data
+      })
+      .catch(err => console.error('Error fetching states:', err));
+  }, []);
+
+  const handleStateSelect = state => {
+    setSelectedState(state);
+    setSelectedCity(null);
+    setCities([]);
+    setStateModalVisible(false);
+
+    // Fetch cities for selected state
+    const formData = new FormData();
+    formData.append('accesskey', API_ACCESS_KEY);
+    formData.append('state_id', state.id);
+
+    axios
+      .post(ADD_NEW_ADDRESS_CITY, formData)
+      .then(res => {
+        console.log('Fetched cities:', res.data); // Added console.log for debugging
+        setCities(res.data.data || []);
+      })
+      .catch(err => console.error('Error fetching cities:', err));
   };
 
-  const validateForm = () => {
-    const requiredFields = ['name', 'phone', 'address', 'city', 'state', 'pincode'];
-    for (const field of requiredFields) {
-      if (!formData[field].trim()) {
-        Alert.alert('Error', `Please fill in ${field.replace(/([A-Z])/g, ' $1').toLowerCase()}`);
-        return false;
-      }
-    }
-    
-    if (formData.phone.length < 10) {
-      Alert.alert('Error', 'Please enter a valid phone number');
-      return false;
-    }
-    
-    if (formData.pincode.length !== 6) {
-      Alert.alert('Error', 'Please enter a valid 6-digit pincode');
-      return false;
-    }
-    
-    return true;
+  const handleCitySelect = city => {
+    setSelectedCity(city);
+    setCityModalVisible(false);
   };
 
-  const saveAddress = async () => {
-    if (!validateForm()) return;
-
-    setLoading(true);
-    try {
-      const savedAddresses = await AsyncStorage.getItem('userAddresses');
-      let addresses = savedAddresses ? JSON.parse(savedAddresses) : [];
-      
-      const newAddress = {
-        id: address ? address.id : Date.now().toString(),
-        ...formData,
-      };
-
-      if (address) {
-        // Update existing address
-        addresses = addresses.map(addr => 
-          addr.id === address.id ? newAddress : addr
-        );
-      } else {
-        // Add new address
-        if (formData.isDefault) {
-          // Remove default from other addresses
-          addresses = addresses.map(addr => ({ ...addr, isDefault: false }));
-        }
-        addresses.push(newAddress);
-      }
-
-      await AsyncStorage.setItem('userAddresses', JSON.stringify(addresses));
-      
-      Alert.alert(
-        'Success',
-        address ? 'Address updated successfully' : 'Address added successfully',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
-    } catch (error) {
-      console.error('Error saving address:', error);
-      Alert.alert('Error', 'Failed to save address');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const renderInputField = (label, field, placeholder, keyboardType = 'default') => (
-    <View style={styles.inputContainer}>
-      <Text style={styles.inputLabel}>{label}</Text>
-      <TextInput
-        style={styles.input}
-        value={formData[field]}
-        onChangeText={(value) => updateFormData(field, value)}
-        placeholder={placeholder}
-        keyboardType={keyboardType}
-        autoCapitalize={field === 'name' ? 'words' : 'none'}
-      />
-    </View>
+  const renderModalItem = (item, onSelect) => (
+    <TouchableOpacity
+      style={{
+        paddingVertical: hp('1.5%'),
+        paddingHorizontal: wp('4%'),
+        borderBottomWidth: 1,
+        borderBottomColor: BORDER_BOTTOM_COLOR,
+      }}
+      onPress={() => onSelect(item)}
+    >
+      <Text style={{ fontSize: wp('4.5%'), color: TEXT_COLOR_DARK }}>
+        {item.name}
+      </Text>
+    </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor={HEADER_COLOR} />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={wp('6%')} color="#333" />
+        <TouchableOpacity>
+          <Icon name="arrow-left" size={20} color={BACKGROUND_COLOR} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {address ? 'Edit Address' : 'Add New Address'}
-        </Text>
-        <View style={{ width: wp('6%') }} />
+        <Text style={styles.headerTitle}>Add address</Text>
       </View>
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
+        showsVerticalScrollIndicator={false}
       >
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {renderInputField('Full Name', 'name', 'Enter your full name')}
-          {renderInputField('Phone Number', 'phone', 'Enter your phone number', 'phone-pad')}
-          {renderInputField('Address', 'address', 'Enter your complete address')}
-          {renderInputField('City', 'city', 'Enter your city')}
-          {renderInputField('State', 'state', 'Enter your state')}
-          {renderInputField('Pincode', 'pincode', 'Enter 6-digit pincode', 'numeric')}
-
-          {/* Default Address Toggle */}
-          <View style={styles.toggleContainer}>
-            <Text style={styles.toggleLabel}>Set as default address</Text>
-            <TouchableOpacity
-              style={[styles.toggleButton, formData.isDefault && styles.toggleButtonActive]}
-              onPress={() => updateFormData('isDefault', !formData.isDefault)}
-            >
-              <View style={[styles.toggleCircle, formData.isDefault && styles.toggleCircleActive]} />
-            </TouchableOpacity>
+        <View style={styles.formContainer}>
+          {/* Name, Phone, Email Inputs */}
+          <View style={styles.inputContainer}>
+            <TextInput
+              placeholder="Name"
+              placeholderTextColor={TEXT_COLOR_DARK}
+              style={styles.input}
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <TextInput
+              placeholder="Phone number"
+              placeholderTextColor={TEXT_COLOR_DARK}
+              style={styles.input}
+              keyboardType="phone-pad"
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <TextInput
+              placeholder="Email"
+              placeholderTextColor={TEXT_COLOR_DARK}
+              style={styles.input}
+              keyboardType="email-address"
+            />
           </View>
 
-          {/* Save Button */}
-          <TouchableOpacity
-            style={[styles.saveButton, loading && styles.saveButtonDisabled]}
-            onPress={saveAddress}
-            disabled={loading}
+          {/* Address */}
+          <View style={[styles.inputContainer, styles.addressInputContainer]}>
+            <TextInput
+              placeholder="Address"
+              placeholderTextColor={TEXT_COLOR_DARK}
+              style={[styles.input, styles.addressInput]}
+              multiline
+            />
+          </View>
+
+          {/* Dropdowns */}
+          <DropdownSelector
+            label={selectedState ? selectedState.name : 'Select State'}
+            onPress={() => setStateModalVisible(true)}
+          />
+          <DropdownSelector
+            label={selectedCity ? selectedCity.name : 'Select City'}
+            onPress={() => {
+              if (cities.length > 0) {
+                setCityModalVisible(true);
+              }
+            }}
+          />
+
+          <View style={styles.inputContainer}>
+            <TextInput
+              placeholder="Pin Code"
+              placeholderTextColor={TEXT_COLOR_DARK}
+              style={styles.input}
+              keyboardType="number-pad"
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <TextInput
+              placeholder="Landmark (Optional)"
+              placeholderTextColor={TEXT_COLOR_DARK}
+              style={styles.input}
+            />
+          </View>
+
+          <Text style={styles.locationLabel}>
+            Location : {selectedState ? selectedState.name : 'Select State'},
+            India
+          </Text>
+
+          <Image
+            source={{ uri: 'https://placehold.co/800x400/f0f0f0/666666' }}
+            style={styles.mapImage}
+            alt="Map"
+          />
+        </View>
+      </ScrollView>
+      <View style={styles.footer}>
+        <TouchableOpacity style={styles.saveButton}>
+          <Text style={styles.saveButtonText}>Save Address & Continue</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* State Modal */}
+      <Modal
+        visible={stateModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setStateModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setStateModalVisible(false)}>
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              justifyContent: 'center',
+            }}
           >
-            {loading ? (
-              <Text style={styles.saveButtonText}>Saving...</Text>
-            ) : (
-              <Text style={styles.saveButtonText}>
-                {address ? 'Update Address' : 'Save Address'}
-              </Text>
-            )}
-          </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
+            <View
+              style={{
+                backgroundColor: BACKGROUND_COLOR,
+                marginHorizontal: wp('10%'),
+                borderRadius: wp('2%'),
+                maxHeight: hp('50%'),
+              }}
+            >
+              <FlatList
+                data={states}
+                keyExtractor={(item, index) => item.id || index.toString()}
+                renderItem={({ item }) =>
+                  renderModalItem(item, handleStateSelect)
+                }
+                removeClippedSubviews={false}
+                initialNumToRender={10}
+                maxToRenderPerBatch={10}
+                windowSize={10}
+              />
+            </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* City Modal */}
+      <Modal
+        visible={cityModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCityModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setCityModalVisible(false)}>
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              justifyContent: 'center',
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: BACKGROUND_COLOR,
+                marginHorizontal: wp('10%'),
+                borderRadius: wp('2%'),
+                maxHeight: hp('50%'),
+              }}
+            >
+              <FlatList
+                data={cities}
+                keyExtractor={(item, index) => item.id || index.toString()}
+                renderItem={({ item }) =>
+                  renderModalItem(item, handleCitySelect)
+                }
+                removeClippedSubviews={false}
+                initialNumToRender={10}
+                maxToRenderPerBatch={10}
+                windowSize={10}
+              />
+            </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
+  // Keep your previous styles
+  safeArea: { flex: 1, backgroundColor: BACKGROUND_COLOR },
   header: {
+    backgroundColor: HEADER_COLOR,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: wp('4%'),
     paddingVertical: hp('2%'),
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
   },
   headerTitle: {
-    fontSize: wp('4.5%'),
-    fontWeight: '600',
-    color: '#333',
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    padding: wp('4%'),
-  },
-  inputContainer: {
-    marginBottom: hp('3%'),
-  },
-  inputLabel: {
-    fontSize: wp('4%'),
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: hp('1%'),
-  },
-  input: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: wp('2%'),
-    paddingHorizontal: wp('3%'),
-    paddingVertical: hp('2%'),
-    fontSize: wp('4%'),
-    color: '#333',
-  },
-  toggleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    padding: wp('4%'),
-    borderRadius: wp('2%'),
-    marginBottom: hp('4%'),
-  },
-  toggleLabel: {
-    fontSize: wp('4%'),
+    color: BACKGROUND_COLOR,
+    fontFamily: 'Poppins',
     fontWeight: '500',
-    color: '#333',
+    fontSize: wp('3.5%'),
+    lineHeight: hp('2.8%'),
+    marginLeft: wp('5%'),
   },
-  toggleButton: {
-    width: wp('12%'),
-    height: wp('6%'),
-    backgroundColor: '#e0e0e0',
-    borderRadius: wp('3%'),
-    justifyContent: 'center',
-    paddingHorizontal: wp('1%'),
+  scrollView: { flex: 1 },
+  scrollViewContent: { paddingBottom: hp('2.5%') },
+  formContainer: { paddingHorizontal: wp('4%'), paddingTop: hp('3%') },
+  inputContainer: {
+    backgroundColor: BACKGROUND_COLOR,
+    borderWidth: 1,
+    borderColor: BORDER_COLOR,
+    borderRadius: 8,
+    marginBottom: hp('2.5%'),
+    paddingHorizontal: wp('4%'),
   },
-  toggleButtonActive: {
-    backgroundColor: '#007AFF',
+  input: { fontSize: wp('4.5%'), color: TEXT_COLOR_DARK, height: hp('6.5%') },
+  addressInputContainer: { height: hp('13%'), paddingVertical: hp('1.5%') },
+  addressInput: { height: '100%', textAlignVertical: 'top' },
+  dropdownContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER_BOTTOM_COLOR,
+    paddingBottom: hp('2.2%'),
+    marginBottom: hp('2.5%'),
   },
-  toggleCircle: {
-    width: wp('4%'),
-    height: wp('4%'),
-    backgroundColor: '#fff',
+  dropdownText: { fontSize: wp('4.5%'), color: TEXT_COLOR_DARK },
+  locationLabel: {
+    fontSize: wp('4%'),
+    color: TEXT_COLOR_MEDIUM,
+    marginTop: hp('2%'),
+    marginBottom: hp('1.5%'),
+  },
+  mapImage: {
+    width: '100%',
+    height: hp('22%'),
     borderRadius: wp('2%'),
-    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: BORDER_COLOR,
   },
-  toggleCircleActive: {
-    alignSelf: 'flex-end',
+  footer: {
+    paddingHorizontal: wp('4%'),
+    paddingTop: hp('1.2%'),
+    paddingBottom: hp('1.2%'),
+    backgroundColor: BACKGROUND_COLOR,
   },
   saveButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: hp('2.5%'),
+    backgroundColor: HEADER_COLOR,
     borderRadius: wp('2%'),
+    paddingVertical: hp('2%'),
     alignItems: 'center',
-    marginBottom: hp('4%'),
-  },
-  saveButtonDisabled: {
-    backgroundColor: '#ccc',
+    justifyContent: 'center',
   },
   saveButtonText: {
-    color: '#fff',
-    fontSize: wp('4%'),
-    fontWeight: '600',
+    color: BACKGROUND_COLOR,
+    fontSize: wp('4.5%'),
+    fontWeight: 'bold',
   },
 });
 
-export default AddAddressScreen;
+export default AddAddress;

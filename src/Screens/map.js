@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   PermissionsAndroid,
   Platform,
-  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import MapView, { Marker } from 'react-native-maps';
@@ -16,28 +15,23 @@ import { scale, verticalScale, moderateScale } from 'react-native-size-matters';
 const MapLocation = () => {
   const navigation = useNavigation();
   const [markerCoord, setMarkerCoord] = useState({
-    latitude: 19.076, // Mumbai coordinates
-    longitude: 72.8777,
+    latitude: 13.0827,
+    longitude: 80.2707,
   });
 
   useEffect(() => {
     const requestLocationPermission = async () => {
       if (Platform.OS === 'android') {
-        try {
-          const granted = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-            {
-              title: 'Location Access Required',
-              message: 'This app needs to access your location',
-              buttonPositive: 'OK',
-            },
-          );
-          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-            console.warn('Location permission denied');
-            return;
-          }
-        } catch (error) {
-          console.error('Error requesting location permission:', error);
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location Access Required',
+            message: 'This app needs to access your location',
+            buttonPositive: 'OK',
+          },
+        );
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          console.warn('Location permission denied');
           return;
         }
       }
@@ -49,7 +43,6 @@ const MapLocation = () => {
         },
         error => {
           console.error('Error getting location:', error);
-          // Keep default coordinates if location access fails
         },
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
       );
@@ -58,37 +51,13 @@ const MapLocation = () => {
     requestLocationPermission();
   }, []);
 
-  const handleSelectLocation = () => {
-    Alert.alert(
-      'Location Selected',
-      `Latitude: ${markerCoord.latitude.toFixed(
-        6,
-      )}\nLongitude: ${markerCoord.longitude.toFixed(6)}`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Confirm',
-          onPress: () => {
-            // Navigate back with the selected location
-            navigation.goBack();
-            // You can also pass the location data back if needed
-            // navigation.navigate('AddAddress', { selectedLocation: markerCoord });
-          },
-        },
-      ],
-    );
-  };
-
   return (
     <View style={styles.container}>
       <MapView
         style={styles.map}
         initialRegion={{
-          latitude: markerCoord.latitude,
-          longitude: markerCoord.longitude,
+          latitude: 13.0827,
+          longitude: 80.2707,
           latitudeDelta: 0.0922,
           longitudeDelta: 0.0421,
         }}
@@ -97,26 +66,27 @@ const MapLocation = () => {
         <Marker
           coordinate={markerCoord}
           title="Selected Location"
-          description="Tap anywhere to change location"
+          description="Tap anywhere to change"
           draggable
-          onDragEnd={e => setMarkerCoord(e.nativeEvent.coordinate)}
         />
       </MapView>
-
-      <View style={styles.infoContainer}>
-        <Text style={styles.coordText}>
-          Latitude: {markerCoord.latitude.toFixed(6)}
-          {'\n'}
-          Longitude: {markerCoord.longitude.toFixed(6)}
-        </Text>
-      </View>
-
       <TouchableOpacity
         style={styles.selectButton}
-        onPress={handleSelectLocation}
+        onPress={() =>
+          navigation.navigate({
+            name: 'AddStudent',
+            params: { selectedLocation: markerCoord },
+            merge: true,
+          })
+        }
       >
-        <Text style={styles.buttonText}>Select This Location</Text>
+        <Text style={styles.buttonText}>Select Location</Text>
       </TouchableOpacity>
+      {/* <Text style={styles.coordText}>
+        Latitude: {markerCoord.latitude.toFixed(6)}
+        {'\n'}
+        Longitude: {markerCoord.longitude.toFixed(6)}
+      </Text> */}
     </View>
   );
 };
@@ -130,23 +100,16 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-  infoContainer: {
+  coordText: {
     position: 'absolute',
-    top: verticalScale(50),
+    bottom: verticalScale(70),
     left: scale(20),
     right: scale(20),
     padding: moderateScale(10),
-    backgroundColor: '#ffffff',
-    borderRadius: scale(8),
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  coordText: {
-    color: '#333',
+    backgroundColor: '#ffffffaa',
+    color: '#042026',
     textAlign: 'center',
-    fontSize: moderateScale(12),
+    borderRadius: scale(8),
     fontFamily: 'Roboto',
   },
   selectButton: {
@@ -154,18 +117,14 @@ const styles = StyleSheet.create({
     bottom: verticalScale(20),
     left: scale(20),
     right: scale(20),
-    backgroundColor: '#e60023',
+    backgroundColor: '#07575B',
     paddingVertical: verticalScale(12),
     borderRadius: scale(8),
     alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: moderateScale(16),
+    fontSize: 16,
     fontWeight: 'bold',
     fontFamily: 'Roboto',
   },
