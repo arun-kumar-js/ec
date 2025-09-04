@@ -79,7 +79,7 @@ export const increaseProductQuantity = async product => {
   }
 };
 
-// Decrease quantity for a product (never goes below 1)
+// Decrease quantity for a product (can go to 0) - used in product listings
 export const decreaseProductQuantity = async product => {
   try {
     if (!product || (!product.id && !product.product_id)) {
@@ -90,13 +90,37 @@ export const decreaseProductQuantity = async product => {
     const currentQuantity = await getProductQuantity(productId);
 
     if (currentQuantity <= 1) {
-      // If quantity is 1, keep it at 1 (don't allow going to 0)
-      return 1;
+      // If quantity is 1, remove the product (set to 0)
+      await removeCartItem(productId);
+      emitCartUpdated();
+      return 0;
     }
 
     return await updateCartItem(product, currentQuantity - 1);
   } catch (error) {
     console.error('Error decreasing product quantity:', error);
+    throw error;
+  }
+};
+
+// Decrease quantity for a product in cart (never goes below 1) - used in cart screen
+export const decreaseCartItemQuantity = async product => {
+  try {
+    if (!product || (!product.id && !product.product_id)) {
+      throw new Error('Invalid product: missing ID');
+    }
+
+    const productId = product.id ?? product.product_id;
+    const currentQuantity = await getProductQuantity(productId);
+
+    if (currentQuantity <= 1) {
+      // If quantity is 1, keep it at 1 (don't allow going to 0 in cart)
+      return 1;
+    }
+
+    return await updateCartItem(product, currentQuantity - 1);
+  } catch (error) {
+    console.error('Error decreasing cart item quantity:', error);
     throw error;
   }
 };

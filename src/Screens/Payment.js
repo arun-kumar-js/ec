@@ -13,13 +13,14 @@ import {
   Modal,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { getTimeSlots } from '../Fuctions/TimeSlotService';
 import { getWalletBalance } from '../Fuctions/UserDataService';
 import { placeOrder } from '../Fuctions/OrderService';
 import { clearCart } from '../Fuctions/CartService';
-import { createBillPlzBill, testBillPlzAPI } from '../Fuctions/BillPlzService';
+import { createBillPlzBill, createBillPlzBillDirect, testBillPlzAPI } from '../Fuctions/BillPlzService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Toast from 'react-native-toast-message';
 
 const PaymentScreen = ({ route }) => {
   const navigation = useNavigation();
@@ -136,15 +137,65 @@ const PaymentScreen = ({ route }) => {
       console.log('=== LAUNCHING BILLPLZ PAYMENT ===');
       console.log('Order Data:', orderData);
 
-      // Navigate to BillPlz WebView
-      navigation.navigate('BillPlzWebView', {
-        orderData: orderData,
-        returnToPayment: true, // Flag to indicate we should return to payment screen
-      });
+      // Try to create BillPlz bill first
+      console.log('=== CREATING BILLPLZ BILL ===');
+      const billResult = await createBillPlzBill(orderData);
+      
+      if (billResult.success && billResult.paymentUrl) {
+        console.log('✅ BillPlz bill created successfully');
+        console.log('Payment URL:', billResult.paymentUrl);
+        
+        // Navigate to BillPlz WebView with the payment URL
+        navigation.navigate('BillPlzWebView', {
+          orderData: orderData,
+          paymentUrl: billResult.paymentUrl,
+          billId: billResult.billId,
+          returnToPayment: true,
+        });
+      } else {
+        console.log('❌ BillPlz bill creation failed:', billResult.message);
+        console.log('🔄 Trying direct API as fallback...');
+        
+        // Automatically try direct API without showing alert
+        handleBillPlzPaymentDirect(orderData);
+      }
     } catch (error) {
       console.error('Error launching BillPlz payment:', error);
       Alert.alert('Error', 'Failed to launch payment. Please try again.');
       setSelectedPaymentMethod('');
+    }
+  };
+
+  const handleBillPlzPaymentDirect = async (orderData) => {
+    try {
+      console.log('=== TRYING DIRECT BILLPLZ API ===');
+      const billResult = await createBillPlzBillDirect(orderData);
+      
+      if (billResult.success && billResult.paymentUrl) {
+        console.log('✅ Direct BillPlz API successful');
+        navigation.navigate('BillPlzWebView', {
+          orderData: orderData,
+          paymentUrl: billResult.paymentUrl,
+          billId: billResult.billId,
+          returnToPayment: true,
+        });
+      } else {
+        console.log('❌ Direct BillPlz API also failed:', billResult.message);
+        console.log('💡 Please check your BillPlz configuration and Collection ID');
+        // Navigate to BillPlz WebView anyway with order data for manual handling
+        navigation.navigate('BillPlzWebView', {
+          orderData: orderData,
+          returnToPayment: true,
+        });
+      }
+    } catch (error) {
+      console.error('Direct API error:', error);
+      console.log('🔄 Proceeding with manual payment flow...');
+      // Navigate to BillPlz WebView for manual handling
+      navigation.navigate('BillPlzWebView', {
+        orderData: orderData,
+        returnToPayment: true,
+      });
     }
   };
 
@@ -153,13 +204,13 @@ const PaymentScreen = ({ route }) => {
       console.log('=== BILLPLZ PAYMENT SUCCESS ===');
       console.log('Processing successful payment...');
 
-      // Show loading indicator
-      Alert.alert(
-        'Processing Order',
-        'Please wait while we process your order...',
-        [],
-        { cancelable: false },
-      );
+      // Show success toast
+      Toast.show({
+        type: 'success',
+        text1: 'Payment Successful!',
+        text2: 'Processing your order...',
+        visibilityTime: 1000,
+      });
 
       // Create the actual order in your system
       const finalOrderData = {
@@ -194,31 +245,68 @@ const PaymentScreen = ({ route }) => {
           console.error('❌ Error clearing cart:', error);
         }
 
-        // Navigate to order confirmation
-        navigation.replace('OrderConfirmed', {
-          orderId: result.data?.order_id || 'N/A',
-          orderData: finalOrderData,
-          orderResult: result.data,
-          paymentMethod: 'BillPlz',
+        // Show order confirmation toast with order ID
+        const orderId = result.data?.order_id || 'N/A';
+        Toast.show({
+          type: 'success',
+          text1: 'Order Placed Successfully!',
+          text2: `Order ID: ${orderId}`,
+          visibilityTime: 1000,
         });
+
+        // Navigate to order confirmation after 1 second
+        setTimeout(() => {
+          navigation.replace('OrderConfirmed', {
+            orderId: orderId,
+            orderData: finalOrderData,
+            orderResult: result.data,
+            paymentMethod: 'BillPlz',
+          });
+        }, 1000);
       } else {
-        Alert.alert(
-          'Order Failed',
-          result.data?.message ||
-            result.message ||
-            'Failed to place order. Please try again.',
-          [{ text: 'OK' }],
-        );
+        Toast.show({
+          type: 'error',
+          text1: 'Order Failed',
+          text2: result.data?.message || result.message || 'Failed to place order. Please try again.',
+          visibilityTime: 2000,
+        });
       }
     } catch (error) {
       console.error('Error processing BillPlz payment success:', error);
-      Alert.alert(
-        'Error',
-        'An error occurred while processing your payment. Please contact support.',
-        [{ text: 'OK' }],
-      );
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'An error occurred while processing your payment. Please contact support.',
+        visibilityTime: 2000,
+      });
     }
   };
+
+  // Handle BillPlz payment success when returning from WebView
+  useFocusEffect(
+    React.useCallback(() => {
+      const checkBillPlzPaymentSuccess = () => {
+        // Check if we have BillPlz payment success data
+        const billPlzSuccess = route.params?.billPlzPaymentSuccess;
+        const billPlzOrderData = route.params?.orderData;
+        const billPlzBillId = route.params?.billId;
+        
+        if (billPlzSuccess && billPlzOrderData) {
+          console.log('✅ BillPlz payment success detected, processing order...');
+          handleBillPlzPaymentSuccess(billPlzOrderData);
+          
+          // Clear the params to prevent re-processing
+          navigation.setParams({
+            billPlzPaymentSuccess: undefined,
+            orderData: undefined,
+            billId: undefined
+          });
+        }
+      };
+      
+      checkBillPlzPaymentSuccess();
+    }, [route.params])
+  );
 
   // Calculate remaining amount when wallet balance or useWalletBalance changes
   useEffect(() => {

@@ -4,13 +4,13 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   SafeAreaView,
   StatusBar,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import Icon from 'react-native-vector-icons/Ionicons';
+import Toast from 'react-native-toast-message';
 import {
   createBillPlzBill,
   checkBillPlzStatus,
@@ -23,10 +23,18 @@ const BillPlzWebView = ({ route, navigation }) => {
   const [retryCount, setRetryCount] = useState(0);
   const webViewRef = useRef(null);
 
-  const { orderData, returnToPayment } = route.params || {};
+  const { orderData, paymentUrl: passedPaymentUrl, billId, returnToPayment } = route.params || {};
 
   useEffect(() => {
-    createBill();
+    if (passedPaymentUrl) {
+      // Payment URL was passed from Payment screen
+      console.log('✅ Using passed payment URL:', passedPaymentUrl);
+      setPaymentUrl(passedPaymentUrl);
+      setLoading(false);
+    } else {
+      // Create bill if no URL was passed
+      createBill();
+    }
   }, []);
 
   const createBill = async () => {
@@ -48,30 +56,22 @@ const BillPlzWebView = ({ route, navigation }) => {
         setError(result.message || 'Failed to create payment bill');
 
         if (retryCount < 2) {
-          Alert.alert(
-            'Payment Error',
-            'Failed to create payment bill. Would you like to retry?',
-            [
-              {
-                text: 'Cancel',
-                style: 'cancel',
-                onPress: () => navigation.goBack(),
-              },
-              {
-                text: 'Retry',
-                onPress: () => {
-                  setRetryCount(prev => prev + 1);
-                  setTimeout(createBill, 1000);
-                },
-              },
-            ],
-          );
+          Toast.show({
+            type: 'error',
+            text1: 'Payment Error',
+            text2: 'Failed to create payment bill. Retrying...',
+            visibilityTime: 2000,
+          });
+          setRetryCount(prev => prev + 1);
+          setTimeout(createBill, 1000);
         } else {
-          Alert.alert(
-            'Payment Error',
-            'Unable to create payment bill. Please try again later.',
-            [{ text: 'OK', onPress: () => navigation.goBack() }],
-          );
+          Toast.show({
+            type: 'error',
+            text1: 'Payment Error',
+            text2: 'Unable to create payment bill. Please try again later.',
+            visibilityTime: 3000,
+          });
+          setTimeout(() => navigation.goBack(), 2000);
         }
       }
     } catch (error) {
@@ -79,30 +79,22 @@ const BillPlzWebView = ({ route, navigation }) => {
       setError('Network error. Please check your connection.');
 
       if (retryCount < 2) {
-        Alert.alert(
-          'Network Error',
-          'Connection failed. Would you like to retry?',
-          [
-            {
-              text: 'Cancel',
-              style: 'cancel',
-              onPress: () => navigation.goBack(),
-            },
-            {
-              text: 'Retry',
-              onPress: () => {
-                setRetryCount(prev => prev + 1);
-                setTimeout(createBill, 1000);
-              },
-            },
-          ],
-        );
+        Toast.show({
+          type: 'error',
+          text1: 'Network Error',
+          text2: 'Connection failed. Retrying...',
+          visibilityTime: 2000,
+        });
+        setRetryCount(prev => prev + 1);
+        setTimeout(createBill, 1000);
       } else {
-        Alert.alert(
-          'Network Error',
-          'Unable to connect. Please try again later.',
-          [{ text: 'OK', onPress: () => navigation.goBack() }],
-        );
+        Toast.show({
+          type: 'error',
+          text1: 'Network Error',
+          text2: 'Unable to connect. Please try again later.',
+          visibilityTime: 3000,
+        });
+        setTimeout(() => navigation.goBack(), 2000);
       }
     } finally {
       setLoading(false);
@@ -136,59 +128,73 @@ const BillPlzWebView = ({ route, navigation }) => {
 
   const handlePaymentSuccess = () => {
     console.log('✅ BillPlz payment successful');
-    Alert.alert(
-      'Payment Successful',
-      'Your payment has been processed successfully!',
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            // Navigate to OrderConfirmed with success data
-            navigation.replace('OrderConfirmed', {
-              orderId: `BILLPLZ_${Date.now()}`,
-              orderData: orderData,
-              orderResult: {
-                error: false,
-                message: 'Payment successful via BillPlz',
-                order_id: `BILLPLZ_${Date.now()}`,
-              },
-              paymentMethod: 'BillPlz',
-              paymentSuccess: true,
-            });
+    
+    // Show success toast
+    Toast.show({
+      type: 'success',
+      text1: 'Payment Successful!',
+      text2: 'Processing your order...',
+      visibilityTime: 1000,
+    });
+
+    // If we have a returnToPayment flag, go back to Payment screen to handle success
+    if (returnToPayment) {
+      setTimeout(() => {
+        navigation.goBack();
+        // Trigger the payment success handler in Payment screen
+        if (navigation.getParent) {
+          navigation.getParent().setParams({ 
+            billPlzPaymentSuccess: true,
+            orderData: orderData,
+            billId: billId
+          });
+        }
+      }, 1000);
+    } else {
+      // Direct navigation to OrderConfirmed
+      setTimeout(() => {
+        navigation.replace('OrderConfirmed', {
+          orderId: `BILLPLZ_${Date.now()}`,
+          orderData: orderData,
+          orderResult: {
+            error: false,
+            message: 'Payment successful via BillPlz',
+            order_id: `BILLPLZ_${Date.now()}`,
           },
-        },
-      ],
-    );
+          paymentMethod: 'BillPlz',
+          paymentSuccess: true,
+        });
+      }, 1000);
+    }
   };
 
   const handlePaymentFailure = (message = 'Payment was cancelled') => {
     console.log('❌ BillPlz payment failed:', message);
-    Alert.alert('Payment Failed', message, [
-      {
-        text: 'OK',
-        onPress: () => {
-          // Go back to payment screen
-          navigation.goBack();
-        },
-      },
-    ]);
+    
+    Toast.show({
+      type: 'error',
+      text1: 'Payment Failed',
+      text2: message,
+      visibilityTime: 2000,
+    });
+
+    // Go back to payment screen after showing toast
+    setTimeout(() => {
+      navigation.goBack();
+    }, 1500);
   };
 
   const handleClose = () => {
-    Alert.alert(
-      'Cancel Payment',
-      'Are you sure you want to cancel this payment?',
-      [
-        { text: 'Continue Payment', style: 'cancel' },
-        {
-          text: 'Cancel Payment',
-          style: 'destructive',
-          onPress: () => {
-            handlePaymentFailure('Payment was cancelled by user');
-          },
-        },
-      ],
-    );
+    Toast.show({
+      type: 'info',
+      text1: 'Payment Cancelled',
+      text2: 'Payment was cancelled by user',
+      visibilityTime: 1500,
+    });
+    
+    setTimeout(() => {
+      navigation.goBack();
+    }, 1000);
   };
 
   if (loading) {

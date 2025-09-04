@@ -264,29 +264,52 @@ const MyOrders = ({ navigation }) => {
 
     // Navigate to OrderDetails screen with order data
     navigation.navigate('OrderDatials', {
-      orderId: item.orderId,
       orderData: {
         // Order information
-        id: item.orderId,
+        order_id: item.orderId,
+        order_date: item.orderDate,
         date_added: item.orderDate,
         active_status: item.orderStatus,
-        final_total: item.orderTotal,
-        payment_method: item.paymentMethod,
-        delivery_method: item.deliveryMethod,
-        delivery_time: item.deliveryTime,
-        address: item.address,
-        mobile: item.mobile,
-
-        // Product/Item information
-        productName: item.productName,
-        productImage: item.productImage,
-        quantity: item.quantity,
-        variant: item.variant,
-        price: item.price,
-
-        // Raw data for additional details
-        rawOrderData: item.rawOrderData,
-        rawItemData: item.rawItemData,
+        id: item.orderId,
+        
+        // Product information
+        name: item.productName,
+        image: item.productImage,
+        quantity: item.quantity.toString(),
+        price: item.price.toString(),
+        sub_total: item.price.toString(),
+        
+        // Product details
+        product_id: item.productId,
+        measurement: item.variant ? item.variant.split(' ')[0] : '1',
+        unit: item.variant ? item.variant.split(' ').slice(1).join(' ') : 'unit',
+        
+        // Customer details
+        customer_details: {
+          name: item.customerName || 'Customer',
+          mobile: item.mobile || 'N/A',
+          address: item.address || 'N/A',
+          email: item.email || 'N/A',
+        },
+        
+        // Delivery and pricing
+        delivery_time: item.deliveryTime || 'N/A',
+        items_amount: item.price.toString(),
+        delivery_charge: '0.0',
+        tax: '0.0',
+        total: item.price.toString(),
+        grand_total: item.orderTotal ? item.orderTotal.toString() : item.price.toString(),
+        
+        // Status
+        status: [[item.orderStatus, item.orderDate]],
+        rating: '0',
+        rating_desc: '',
+        
+        // Additional fields
+        discount: '0',
+        discounted_price: item.price.toString(),
+        product_variant_id: item.productId,
+        user_id: '1',
       },
     });
   };

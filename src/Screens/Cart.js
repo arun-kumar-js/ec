@@ -17,7 +17,7 @@ import { onCartUpdated, offCartUpdated } from '../Fuctions/cartEvents';
 import {
   fetchCartItems,
   increaseProductQuantity,
-  decreaseProductQuantity,
+  decreaseCartItemQuantity,
   removeProductFromCart,
 } from '../Fuctions/CartService';
 import {
@@ -68,7 +68,7 @@ const Cart = ({ navigation }) => {
 
   const decreaseQuantity = async item => {
     try {
-      const newQty = await decreaseProductQuantity(item);
+      const newQty = await decreaseCartItemQuantity(item);
       const updatedItems = cartItems.map(cartItem => {
         if (
           cartItem.id === item.id ||
@@ -84,9 +84,22 @@ const Cart = ({ navigation }) => {
     }
   };
 
-  const removeItem = item => {
-    setItemToRemove(item);
-    setModalVisible(true);
+  const removeItem = async (item) => {
+    console.log('Remove button pressed for item:', item);
+    try {
+      await removeProductFromCart(item);
+      const updatedItems = cartItems.filter(
+        cartItem =>
+          cartItem.id !== item.id &&
+          cartItem.product_id !== item.product_id,
+      );
+      console.log('Updated cart items:', updatedItems);
+      setCartItems(updatedItems);
+      console.log('Item removed successfully');
+    } catch (error) {
+      console.error('Failed to remove cart item:', error);
+      Alert.alert('Error', 'Failed to remove item from cart. Please try again.');
+    }
   };
 
   const renderItem = ({ item }) => {
@@ -189,15 +202,19 @@ const Cart = ({ navigation }) => {
               <TouchableOpacity
                 onPress={async () => {
                   try {
+                    console.log('Removing item from cart:', itemToRemove);
                     await removeProductFromCart(itemToRemove);
                     const updatedItems = cartItems.filter(
                       cartItem =>
                         cartItem.id !== itemToRemove.id &&
                         cartItem.product_id !== itemToRemove.product_id,
                     );
+                    console.log('Updated cart items:', updatedItems);
                     setCartItems(updatedItems);
+                    console.log('Item removed successfully');
                   } catch (error) {
                     console.error('Failed to remove cart item:', error);
+                    Alert.alert('Error', 'Failed to remove item from cart. Please try again.');
                   }
                   setModalVisible(false);
                 }}
@@ -267,11 +284,12 @@ const Cart = ({ navigation }) => {
                 Total {itemCount} Items RM
                 {totalPrice ? totalPrice.toFixed(2) : '0.00'}
               </Text>
-              <Text style={styles.checkoutText}>Checkout</Text>
+              
               <TouchableOpacity
-                style={styles.checkoutButton}
+                style={[styles.checkoutButton, {flexDirection: "row",gap:20}]}
                 onPress={() => navigation.navigate('AddressPage')}
               >
+                <Text style={styles.checkoutText}>Checkout</Text>
                 <View style={styles.checkoutCircle}>
                   <Text style={styles.checkoutArrow}>{'>'}</Text>
                 </View>
@@ -315,6 +333,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     flex: 1,
+    fontFamily: 'Montserrat-Bold',
   },
   headerBackButton: {
     paddingHorizontal: wp('2%'),
@@ -328,6 +347,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: wp('6%'),
     fontWeight: 'bold',
+    fontFamily: 'Montserrat-Bold',
   },
   itemContainer: {
     flexDirection: 'row',
@@ -398,13 +418,20 @@ const styles = StyleSheet.create({
     fontSize: wp('4%'),
   },
   removeButton: {
-    backgroundColor: 'transparent',
-    padding: wp('1%'),
+    backgroundColor: '#ffebee',
+    padding: wp('2%'),
+    borderRadius: wp('2%'),
+    minWidth: wp('8%'),
+    minHeight: wp('8%'),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#ffcdd2',
   },
   removeText: {
-    color: 'red',
+    color: '#d32f2f',
     fontWeight: 'bold',
-    fontSize: wp('5%'),
+    fontSize: wp('4%'),
   },
   emptyText: {
     fontFamily: 'Poppins',
@@ -483,12 +510,13 @@ const styles = StyleSheet.create({
     color: 'red',
   },
   checkoutText: {
-    fontFamily: 'Poppins',
+    fontFamily: 'Montserrat-SemiBold',
     fontSize: wp('4%'),
     fontWeight: '600',
     color: '#fff',
     backgroundColor: '#F70D24',
-    // paddingVertical: hp('1%'),
+    
+    paddingTop: hp('1%'),
     paddingHorizontal: wp('3%'),
     borderRadius: wp('1%'),
     textAlign: 'center',

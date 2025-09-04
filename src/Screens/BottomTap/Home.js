@@ -25,6 +25,8 @@ import {
   updateCartItem,
   getProductQuantity,
   fetchCartItems,
+  increaseProductQuantity,
+  decreaseProductQuantity,
 } from '../../Fuctions/CartService';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -61,14 +63,11 @@ const HomeScreen = () => {
   // Cart functions
   const addToCart = async item => {
     try {
-      const currentQuantity = await getProductQuantity(
-        item.id || item.product_id,
-      );
-      await updateCartItem(item, currentQuantity + 1);
+      const newQuantity = await increaseProductQuantity(item);
       // Update local state to reflect the change
       setCartItems(prev => ({
         ...prev,
-        [item.id || item.product_id]: currentQuantity + 1,
+        [item.id || item.product_id]: newQuantity,
       }));
     } catch (error) {
       console.error('Error adding to cart:', error);
@@ -77,22 +76,12 @@ const HomeScreen = () => {
 
   const removeFromCart = async item => {
     try {
-      const currentQuantity = await getProductQuantity(
-        item.id || item.product_id,
-      );
-      if (currentQuantity > 1) {
-        await updateCartItem(item, currentQuantity - 1);
-        setCartItems(prev => ({
-          ...prev,
-          [item.id || item.product_id]: currentQuantity - 1,
-        }));
-      } else {
-        // If quantity is 1, keep it at 1 (don't allow going to 0)
-        setCartItems(prev => ({
-          ...prev,
-          [item.id || item.product_id]: 1,
-        }));
-      }
+      const newQuantity = await decreaseProductQuantity(item);
+      // Update local state to reflect the change
+      setCartItems(prev => ({
+        ...prev,
+        [item.id || item.product_id]: newQuantity,
+      }));
     } catch (error) {
       console.error('Error removing from cart:', error);
     }
@@ -117,25 +106,29 @@ const HomeScreen = () => {
         <TouchableOpacity
           style={{
             backgroundColor: '#EF3340',
-            paddingVertical: hp('0.9%'),
-            paddingHorizontal: wp('6%'),
+            paddingVertical: hp('1%'),
+            paddingHorizontal: wp('3%'),
             borderRadius: wp('1%'),
             alignItems: 'center',
             marginTop: hp('1%'),
-            //marginBottom: hp('1%'),
-            marginHorizontal: wp('3%'),
-            height: hp('4%'),
-            width: wp('80%'),
-            alignSelf: 'center',
             marginBottom: hp('1%'),
+            marginHorizontal: wp('2%'),
+            height: hp('4.5%'),
+       width: wp('75%'),
+            alignSelf: 'center',
           }}
           onPress={() => addToCart(item)}
           activeOpacity={1}
         >
           <Text
-            style={{ color: '#fff', fontWeight: 'bold', fontSize: wp('3.5%') }}
+            style={{ 
+              color: '#fff', 
+              fontWeight: 'bold', 
+              fontSize: wp('3.5%'),
+              fontFamily: 'Montserrat-Bold'
+            }}
           >
-            Add to Cart
+            Add 
           </Text>
         </TouchableOpacity>
       );
@@ -148,11 +141,12 @@ const HomeScreen = () => {
           alignItems: 'center',
           justifyContent: 'center',
           marginTop: hp('1%'),
+          marginBottom: hp('1%'),
           gap: wp('3%'),
-          height: hp('4%'),
-          width: wp('80%'),
+          height: hp('4.5%'),
+          width: wp('85%'),
           alignSelf: 'center',
-          marginHorizontal: wp('3%'),
+          marginHorizontal: wp('2%'),
         }}
       >
         <TouchableOpacity
@@ -183,6 +177,7 @@ const HomeScreen = () => {
             fontSize: wp('3%'),
             minWidth: wp('6%'),
             textAlign: 'center',
+            fontFamily: 'Montserrat-Bold',
           }}
         >
           {quantity}
@@ -217,6 +212,125 @@ const HomeScreen = () => {
               }}
             />
           </View>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  // Promotion Cart Button Component (Larger size)
+  const PromotionCartButton = ({ item }) => {
+    const quantity = cartItems[item.id || item.product_id] || 0;
+
+    if (quantity === 0) {
+      return (
+        <TouchableOpacity
+          style={{
+            backgroundColor: '#EF3340',
+            paddingVertical: hp('1.5%'),
+            paddingHorizontal: wp('4%'),
+            borderRadius: wp('2%'),
+            alignItems: 'center',
+            marginTop: hp('1%'),
+            marginBottom: hp('1%'),
+            marginHorizontal: wp('2%'),
+            height: hp('5.5%'),
+            width: wp('35%'),
+            alignSelf: 'center',
+           
+          }}
+          onPress={() => addToCart(item)}
+          activeOpacity={1}
+        >
+          <Text
+            style={{ 
+              color: '#fff', 
+              fontWeight: 'bold', 
+              fontSize: wp('4%'),
+              fontFamily: 'Montserrat-Bold'
+            }}
+          >
+            Add
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginTop: hp('1%'),
+          marginBottom: hp('1%'),
+          gap: wp('4%'),
+          height: hp('5.5%'),
+          width: wp('80%'),
+          alignSelf: 'center',
+          marginHorizontal: wp('2%'),
+        }}
+      >
+        <TouchableOpacity
+          onPress={() => removeFromCart(item)}
+          style={{
+            width: wp('10%'),
+            height: wp('10%'),
+            backgroundColor: '#EF3340',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: wp('1%'),
+          }}
+          activeOpacity={1}
+        >
+          <View
+            style={{
+              width: wp('5%'),
+              height: wp('0.5%'),
+              backgroundColor: '#fff',
+            }}
+          />
+        </TouchableOpacity>
+
+        <Text
+          style={{
+            color: '#333',
+            fontWeight: 'bold',
+            fontSize: wp('3.5%'),
+            minWidth: wp('8%'),
+            textAlign: 'center',
+            fontFamily: 'Montserrat-Bold',
+          }}
+        >
+          {quantity}
+        </Text>
+
+        <TouchableOpacity
+          onPress={() => addToCart(item)}
+          style={{
+            width: wp('10%'),
+            height: wp('10%'),
+            backgroundColor: '#EF3340',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: wp('1%'),
+          }}
+          activeOpacity={1}
+        >
+          <View
+            style={{
+              width: wp('5%'),
+              height: wp('0.5%'),
+              backgroundColor: '#fff',
+            }}
+          />
+          <View
+            style={{
+              width: wp('0.5%'),
+              height: wp('5%'),
+              backgroundColor: '#fff',
+              position: 'absolute',
+            }}
+          />
         </TouchableOpacity>
       </View>
     );
@@ -291,6 +405,7 @@ const HomeScreen = () => {
                 setDrawerVisible(true);
               }}
               activeOpacity={1}
+              style={{ padding: wp('2%') }}
             >
               <Icon name="menu" size={wp('6%')} color="#fff" />
             </TouchableOpacity>
@@ -317,7 +432,11 @@ const HomeScreen = () => {
         </View>
 
         {/* Search Bar */}
-        <View style={styles.searchWrapper}>
+        <TouchableOpacity 
+          style={styles.searchWrapper}
+          onPress={() => navigation.navigate('Search')}
+          activeOpacity={0.8}
+        >
           <View style={styles.searchContainer}>
             <Icon
               name="search"
@@ -329,9 +448,11 @@ const HomeScreen = () => {
               style={styles.searchInput}
               placeholder="Search products.."
               placeholderTextColor="#888"
+              editable={false}
+              pointerEvents="none"
             />
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* Banner */}
         {data?.slider?.length > 0 && (
@@ -354,9 +475,7 @@ const HomeScreen = () => {
         )}
 
         {/* Promotion Section */}
-        {data?.section
-          ?.filter(item => item.title === 'PROMOTION' && item.place === 'top')
-          .map(promo => (
+        {data?.section.map(promo => (
             <View
               key={promo.id}
               style={{
@@ -443,7 +562,7 @@ const HomeScreen = () => {
                             RM{item?.variants?.[0]?.product_price || ''}
                           </Text>
                         </View>
-                        <CartButton item={item} />
+                        <PromotionCartButton item={item} />
                       </View>
                     </TouchableOpacity>
                   ))}
@@ -545,7 +664,10 @@ const HomeScreen = () => {
       </ScrollView>
       <SimpleDrawer
         visible={drawerVisible}
-        onClose={() => setDrawerVisible(false)}
+        onClose={() => {
+          console.log('Closing drawer');
+          setDrawerVisible(false);
+        }}
         navigation={navigation}
       />
     </SafeAreaView>
@@ -570,27 +692,36 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
   },
   searchWrapper: {
-    backgroundColor: '#fff',
+    backgroundColor: '#F70D24',
     paddingHorizontal: wp('4%'),
     paddingVertical: hp('1%'),
   },
   searchContainer: {
-    borderRadius: wp('2%'),
+    backgroundColor: '#fff',
+    borderRadius: wp('3%'),
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: wp('3%'),
-    elevation: 3,
+    paddingHorizontal: wp('4%'),
+   // paddingVertical: hp('1.2%'),
+    elevation: 2,
     shadowColor: '#000',
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 3,
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
   },
   searchInput: {
     flex: 1,
     height: hp('5%'),
-    fontSize: wp('3.5%'),
+    fontSize: wp('3.8%'),
+    fontFamily: 'Montserrat-Regular',
+    color: '#333',
   },
   searchIcon: {
-    marginHorizontal: wp('2%'),
+    marginRight: wp('3%'),
+    marginLeft: wp('1%'),
   },
   banner: {
     width: screenWidth - wp('2.5%'),

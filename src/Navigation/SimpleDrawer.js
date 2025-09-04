@@ -10,16 +10,12 @@ import {
   Modal,
   ScrollView,
   Dimensions,
-  Animated,
 } from 'react-native';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 const SimpleDrawer = ({ visible, onClose, navigation }) => {
   const [user, setUser] = useState(null);
-  const slideAnim = React.useRef(
-    new Animated.Value(-screenWidth * 0.6),
-  ).current;
 
   useEffect(() => {
     const loadUser = async () => {
@@ -34,25 +30,6 @@ const SimpleDrawer = ({ visible, onClose, navigation }) => {
     };
     loadUser();
   }, []);
-
-  React.useEffect(() => {
-    console.log('SimpleDrawer visible changed:', visible);
-    if (visible) {
-      console.log('Opening drawer animation');
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: false, // Changed to false to avoid animation issues
-      }).start();
-    } else {
-      console.log('Closing drawer animation');
-      Animated.timing(slideAnim, {
-        toValue: -screenWidth * 0.6,
-        duration: 300,
-        useNativeDriver: false, // Changed to false to avoid animation issues
-      }).start();
-    }
-  }, [visible, slideAnim]);
 
   const menuItems = [
     {
@@ -147,7 +124,7 @@ const SimpleDrawer = ({ visible, onClose, navigation }) => {
     <Modal
       visible={visible}
       transparent={true}
-      animationType="none"
+      animationType="slide"
       onRequestClose={onClose}
     >
       <TouchableOpacity
@@ -155,14 +132,7 @@ const SimpleDrawer = ({ visible, onClose, navigation }) => {
         onPress={onClose}
         activeOpacity={1}
       >
-        <Animated.View
-          style={[
-            styles.drawerContainer,
-            {
-              transform: [{ translateX: slideAnim }],
-            },
-          ]}
-        >
+        <View style={styles.drawerContainer}>
           <TouchableOpacity
             style={styles.drawerContent}
             onPress={() => {}} // Prevent closing when tapping inside drawer
@@ -242,7 +212,7 @@ const SimpleDrawer = ({ visible, onClose, navigation }) => {
               </TouchableOpacity>
             </ScrollView>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
       </TouchableOpacity>
     </Modal>
   );
@@ -257,6 +227,9 @@ const styles = StyleSheet.create({
     width: screenWidth * 0.6,
     height: '100%',
     backgroundColor: '#fff',
+    position: 'absolute',
+    left: 0,
+    top: 0,
   },
   drawerContent: {
     flex: 1,

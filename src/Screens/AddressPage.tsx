@@ -118,8 +118,11 @@ const ChooseAddressScreen = ({ navigation }) => {
                 style={styles.actionButton}
                 onPress={() => {
                   console.log('Edit address:', item.id);
-                  // TODO: Navigate to edit address screen
-                  Alert.alert('Edit', 'Edit functionality coming soon');
+                  navigation.navigate('AddAddress', {
+                    editMode: true,
+                    addressData: item,
+                    user_id: user?.user_id || user?.id
+                  });
                 }}
               >
                 <Icon name="pencil" size={16} color="#EF3340" />
@@ -234,7 +237,6 @@ const ChooseAddressScreen = ({ navigation }) => {
             }
           }}
         >
-          <Icon name="add" size={20} color="#FFFFFF" />
           <Text style={styles.addButtonText}>Add New Address</Text>
         </TouchableOpacity>
 

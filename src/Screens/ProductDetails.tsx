@@ -8,6 +8,8 @@ import {
   ScrollView,
   SafeAreaView,
   StatusBar,
+  Share,
+  Alert,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import {
@@ -50,6 +52,26 @@ const ProductDetails = ({ route, navigation }) => {
     );
   }
 
+  const handleShare = async () => {
+    try {
+      const productUrl = `https://spiderekart.in/product/${product.id}`;
+      const shareMessage = `Check out this amazing product: ${product.name}\n\nPrice: ₹${discountedPrice || originalPrice}\n\n${productUrl}`;
+      
+      const result = await Share.share({
+        message: shareMessage,
+        title: product.name,
+        url: productUrl,
+      });
+
+      if (result.action === Share.sharedAction) {
+        console.log('Product shared successfully');
+      }
+    } catch (error) {
+      console.error('Error sharing product:', error);
+      Alert.alert('Error', 'Failed to share product. Please try again.');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#F70D24" />
@@ -89,7 +111,11 @@ const ProductDetails = ({ route, navigation }) => {
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity style={styles.shareIconContainer}>
+              <TouchableOpacity 
+                style={styles.shareIconContainer}
+                onPress={handleShare}
+                activeOpacity={0.7}
+              >
                 <Ionicons
                   name="share-social-outline"
                   size={wp('6%')}
@@ -178,9 +204,12 @@ const ProductDetails = ({ route, navigation }) => {
             <Ionicons name="heart-outline" size={wp('6%')} color="#F70D24" />
             <Text style={{ color: '#F70D24' }}>Save for later</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.cartButton}>
+          <TouchableOpacity 
+            style={styles.cartButton}
+            onPress={() => navigation.navigate('Cart')}
+          >
             <Ionicons name="cart-outline" size={wp('6%')} color="white" />
-            <Text style={{ color: 'white' }}>Go to Cart</Text>
+            <Text style={{ color: 'white', fontFamily: 'Montserrat-Bold' }}>Go to Cart</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -210,7 +239,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: 'white',
     fontSize: wp('4.5%'),
-    fontWeight: 'bold',
+    fontFamily: 'Montserrat-Bold',
   },
   scrollContentContainer: {
     paddingBottom: hp('10%'), // Space for the fixed footer
@@ -220,6 +249,7 @@ const styles = StyleSheet.create({
     height: hp('40%'),
     resizeMode: 'cover',
     padding: wp('2%'),
+    marginTop: hp('1%'),
     paddingTop: hp('3%'),
     borderRadius: wp('2%'),
   },
@@ -241,6 +271,7 @@ const styles = StyleSheet.create({
     fontSize: wp('4.5%'),
     fontWeight: 'bold',
     color: '#D32F2F',
+    fontFamily: 'Montserrat-Bold',
   },
   ratingContainer: {
     flexDirection: 'row',
@@ -292,6 +323,7 @@ const styles = StyleSheet.create({
     color: '#757575',
     textDecorationLine: 'line-through',
     marginLeft: wp('2.5%'),
+    fontFamily: 'Montserrat-Regular',
   },
   discountBadge: {
     backgroundColor: '#4CAF50',
@@ -359,6 +391,7 @@ const styles = StyleSheet.create({
     fontSize: wp('3.5%'),
     color: '#616161',
     lineHeight: hp('2.8%'),
+    fontFamily: 'Montserrat-Regular',
   },
   discountedPrice: {
     fontSize: wp('5.5%'),
@@ -366,6 +399,7 @@ const styles = StyleSheet.create({
     lineHeight: hp('2.8%'),
     marginLeft: wp('2%'),
     fontWeight: 'bold',
+    fontFamily: 'Montserrat-Bold',
   },
   footer: {
     position: 'absolute',
@@ -408,6 +442,7 @@ const styles = StyleSheet.create({
     fontSize: wp('4%'),
     fontWeight: 'bold',
     marginLeft: wp('2%'),
+    fontFamily: 'Montserrat-Bold',
   },
   offerBadge: {
     backgroundColor: 'green',

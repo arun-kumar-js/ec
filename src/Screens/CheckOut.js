@@ -63,9 +63,9 @@ const CheckOutScreen = ({ route }) => {
     }, 0);
     const taxPercentage = parseFloat(storeSettings.tax) / 100; // Convert percentage to decimal
     const tax = subtotal * taxPercentage;
-    const taxableAmount = subtotal - tax;
+    const taxableAmount = subtotal+tax;
     const deliveryCharge = parseFloat(storeSettings.delivery_charge) || 0;
-    const total = subtotal + deliveryCharge - promoDiscount;
+    const total = taxableAmount + deliveryCharge - promoDiscount;
 
     return {
       taxableAmount,
@@ -395,7 +395,6 @@ const CheckOutScreen = ({ route }) => {
             <Text style={styles.tableHeaderText}>Qty</Text>
             <Text style={styles.tableHeaderText}>Price</Text>
             <Text style={styles.tableHeaderText}>Subtotal</Text>
-            <Text style={styles.tableHeaderText}>CG</Text>
           </View>
 
           {/* Table Rows */}
@@ -411,23 +410,15 @@ const CheckOutScreen = ({ route }) => {
               <Text style={styles.tableCell}>
                 ₹{(getItemPrice(item) * (item.quantity || 1)).toFixed(2)}
               </Text>
-              <Text style={styles.tableCell}>
-                ₹
-                {(
-                  getItemPrice(item) *
-                  (item.quantity || 1) *
-                  (parseFloat(storeSettings.tax) / 100)
-                ).toFixed(2)}
-              </Text>
             </View>
           ))}
 
           {/* Summary Breakdown */}
           <View style={styles.summaryBreakdown}>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Taxable Amount</Text>
+              <Text style={styles.summaryLabel}>Subtotal</Text>
               <Text style={styles.summaryValue}>
-                ₹{totals.taxableAmount.toFixed(2)}
+                ₹{totals.subtotal.toFixed(2)}
               </Text>
             </View>
             <View style={styles.summaryRow}>
@@ -439,9 +430,9 @@ const CheckOutScreen = ({ route }) => {
               </Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Subtotal</Text>
+              <Text style={styles.summaryLabel}>Taxable Amount</Text>
               <Text style={styles.summaryValue}>
-                ₹{totals.subtotal.toFixed(2)}
+                ₹{totals.taxableAmount.toFixed(2)}
               </Text>
             </View>
             {promoApplied && promoDiscount > 0 && (
@@ -536,7 +527,7 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   progressText: {
-    fontSize: 16,
+    fontSize: 18,
     color: '#666',
     fontFamily: 'Montserrat',
   },

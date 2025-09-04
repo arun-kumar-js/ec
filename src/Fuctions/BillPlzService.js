@@ -9,6 +9,133 @@ import {
 const BILLPLZ_API_KEY = 'd43afc10-6e24-41c7-84be-61a9a89c0ba9';
 const BILLPLZ_BASE_URL = 'https://www.billplz.com/api/';
 
+// Direct BillPlz API integration (fallback when PHP backend is not working)
+export const createBillPlzBillDirect = async orderData => {
+  try {
+    console.log('=== BILLPLZ DIRECT API CREATE BILL ===');
+    console.log('Order Data:', orderData);
+
+    const { orderId, user, selectedAddress, totals } = orderData;
+
+    // Validate required data
+    if (!user) {
+      return {
+        success: false,
+        message: 'User data is required',
+      };
+    }
+
+    if (!totals || !totals.total) {
+      return {
+        success: false,
+        message: 'Order total is required',
+      };
+    }
+
+    // Convert total to cents (BillPlz expects amount in cents)
+    const amountInCents = formatAmountForBillPlz(totals.total || 0);
+
+    // Extract user data with fallbacks
+    const userMobile = user.mobile || user.phone || user.mobile_number || '';
+    const userEmail = user.email || user.email_address || 'test@example.com';
+    const userName = user.name || user.full_name || user.username || 'Customer';
+
+    // Format mobile number for BillPlz
+    const formattedMobile = formatMobileForBillPlz(userMobile);
+
+    // Prepare URL parameters (matching Android implementation)
+    const params = new URLSearchParams({
+      accesskey: API_ACCESS_KEY,
+      type: 'create-bill',
+      order_id: orderId || `ORDER_${Date.now()}`,
+      mobile: formattedMobile,
+      customer_email: userEmail,
+      customer_name: userName,
+      amount: amountInCents.toString()
+    });
+
+    const paymentUrl = `${API_BASE_URL}billplz-payment-gateway.php?${params.toString()}`;
+
+    console.log('=== BILLPLZ DIRECT API REQUEST ===');
+    console.log('Payment URL:', paymentUrl);
+
+    // Make direct API call using GET request (matching Android)
+    const response = await fetch(paymentUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'User-Agent': 'Mozilla/5.0 (compatible; ReactNative/1.0)',
+      },
+    });
+
+    console.log('=== BILLPLZ DIRECT API RESPONSE ===');
+    console.log('Status:', response.status);
+    console.log('Status Text:', response.statusText);
+
+    // Check if it's a redirect response (302) - matching Android behavior
+    if (response.status === 302 || response.status === 301) {
+      const redirectUrl = response.headers.get('location');
+      console.log('=== BILLPLZ REDIRECT DETECTED (DIRECT) ===');
+      console.log('Redirect URL:', redirectUrl);
+
+      if (redirectUrl && redirectUrl.includes('billplz.com')) {
+        console.log('✅ Direct API redirect URL is valid BillPlz URL');
+        return {
+          success: true,
+          data: { redirect: true },
+          paymentUrl: redirectUrl,
+          billId: redirectUrl.split('/').pop(),
+        };
+      } else {
+        console.log('❌ Direct API redirect URL is not valid BillPlz URL:', redirectUrl);
+        return {
+          success: true,
+          data: { redirect: false },
+          paymentUrl: paymentUrl,
+          billId: null,
+        };
+      }
+    }
+
+    // If not a redirect, try to parse as JSON
+    try {
+      const responseData = await response.json();
+      console.log('Response Data:', responseData);
+
+      if (response.ok && responseData.url) {
+        return {
+          success: true,
+          data: responseData,
+          paymentUrl: responseData.url,
+          billId: responseData.id,
+        };
+      } else {
+        return {
+          success: false,
+          message: responseData.message || 'Failed to create BillPlz bill',
+          data: responseData,
+        };
+      }
+    } catch (parseError) {
+      console.log('Failed to parse JSON, using payment URL directly');
+      return {
+        success: true,
+        data: { directUrl: true },
+        paymentUrl: paymentUrl,
+        billId: null,
+      };
+    }
+  } catch (error) {
+    console.error('=== BILLPLZ DIRECT API ERROR ===');
+    console.error('Error:', error);
+    return {
+      success: false,
+      message: error.message || 'Network error',
+      error: error,
+    };
+  }
+};
+
 export const createBillPlzBill = async orderData => {
   try {
     console.log('=== BILLPLZ CREATE BILL ===');
@@ -42,17 +169,20 @@ export const createBillPlzBill = async orderData => {
     // Format mobile number for BillPlz
     const formattedMobile = formatMobileForBillPlz(userMobile);
 
-    // Prepare form data
-    const formData = new FormData();
-    formData.append('accesskey', API_ACCESS_KEY);
-    formData.append('type', 'create-bill');
-    formData.append('order_id', orderId || `ORDER_${Date.now()}`);
-    formData.append('mobile', formattedMobile);
-    formData.append('customer_email', userEmail);
-    formData.append('customer_name', userName);
-    formData.append('amount', amountInCents.toString());
+    // Prepare URL parameters (matching Android implementation)
+    const params = new URLSearchParams({
+      accesskey: API_ACCESS_KEY,
+      type: 'create-bill',
+      order_id: orderId || `ORDER_${Date.now()}`,
+      mobile: formattedMobile,
+      customer_email: userEmail,
+      customer_name: userName,
+      amount: amountInCents.toString()
+    });
 
-    console.log('=== BILLPLZ FORM DATA ===');
+    const paymentUrl = `${API_BASE_URL}billplz-payment-gateway.php?${params.toString()}`;
+
+    console.log('=== BILLPLZ URL PARAMETERS ===');
     console.log('Access Key:', API_ACCESS_KEY);
     console.log('Type: create-bill');
     console.log('Order ID:', orderId || `ORDER_${Date.now()}`);
@@ -60,20 +190,21 @@ export const createBillPlzBill = async orderData => {
     console.log('Email:', userEmail);
     console.log('Name:', userName);
     console.log('Amount (cents):', amountInCents);
+    console.log('Payment URL:', paymentUrl);
 
-    // Make API call to BillPlz gateway using fetch for better redirect handling
+    // Make API call to BillPlz gateway using GET request (matching Android)
     console.log('=== MAKING API CALL ===');
-    console.log('URL:', `${API_BASE_URL}billplz-payment-gateway.php`);
+    console.log('URL:', paymentUrl);
 
     try {
-      // Try without redirect: 'manual' first to see what happens
-      const fetchResponse = await fetch(
-        `${API_BASE_URL}billplz-payment-gateway.php`,
-        {
-          method: 'POST',
-          body: formData,
+      // Use GET request with URL parameters (matching Android implementation)
+      const fetchResponse = await fetch(paymentUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'User-Agent': 'Mozilla/5.0 (compatible; ReactNative/1.0)',
         },
-      );
+      });
 
       console.log('=== FETCH RESPONSE ===');
       console.log('Status:', fetchResponse.status);
@@ -85,10 +216,10 @@ export const createBillPlzBill = async orderData => {
       console.log('OK:', fetchResponse.ok);
       console.log('Redirected:', fetchResponse.redirected);
 
-      // Check if it's a redirect response (302)
+      // Check if it's a redirect response (302) - matching Android behavior
       if (fetchResponse.status === 302 || fetchResponse.status === 301) {
         const redirectUrl = fetchResponse.headers.get('location');
-        console.log('=== BILLPLZ REDIRECT DETECTED (FETCH) ===');
+        console.log('=== BILLPLZ REDIRECT DETECTED ===');
         console.log('Redirect URL:', redirectUrl);
 
         if (redirectUrl && redirectUrl.includes('billplz.com')) {
@@ -100,10 +231,14 @@ export const createBillPlzBill = async orderData => {
             billId: redirectUrl.split('/').pop(), // Extract bill ID from URL
           };
         } else {
-          console.log(
-            '❌ Redirect URL is not a valid BillPlz URL:',
-            redirectUrl,
-          );
+          console.log('❌ Redirect URL is not a valid BillPlz URL:', redirectUrl);
+          // If redirect URL is not BillPlz, use the original payment URL
+          return {
+            success: true,
+            data: { redirect: false },
+            paymentUrl: paymentUrl,
+            billId: null,
+          };
         }
       }
 
@@ -165,6 +300,23 @@ export const createBillPlzBill = async orderData => {
               };
             }
           }
+
+          // If we found BillPlz URLs but no payment URL, it means the PHP backend
+          // is returning the BillPlz payment page HTML instead of creating a bill
+          // This indicates the PHP backend needs to be updated
+          console.log('=== BILLPLZ BACKEND ISSUE DETECTED ===');
+          console.log('PHP backend is returning BillPlz payment page HTML instead of creating a bill');
+          console.log('This means the PHP backend needs to be updated with proper BillPlz API integration');
+          
+          return {
+            success: false,
+            message: 'PHP backend needs to be updated. It\'s returning BillPlz payment page HTML instead of creating a bill via API. Please update your PHP backend with the example code provided in BILLPLZ_PHP_BACKEND_EXAMPLE.php',
+            data: { 
+              htmlResponse: true,
+              billplzUrlsFound: allUrlMatch?.length || 0,
+              issue: 'backend_returns_html_instead_of_json'
+            },
+          };
         }
 
         return {

@@ -28,6 +28,7 @@ import PrivacyPolicy from './src/Screens/PrivacyPolicy';
 import MyOrders from './src/Screens/MyOrders';
 import Rating from './src/Screens/Rating';
 import OrderDatials from './src/Screens/OrderDatials';
+import Search from './src/Search';
 
 const Stack = createStackNavigator();
 
@@ -80,6 +81,7 @@ const App = () => {
         <Stack.Screen name="MyOrders" component={MyOrders} />
         <Stack.Screen name="Rating" component={Rating} />
         <Stack.Screen name="OrderDatials" component={OrderDatials} />
+        <Stack.Screen name="Search" component={Search} />
       </Stack.Navigator>
     </NavigationContainer>
   );
