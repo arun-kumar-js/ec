@@ -180,3 +180,68 @@ export const placeOrder = async orderData => {
     };
   }
 };
+
+export const getUserOrders = async userId => {
+  try {
+    const formData = new FormData();
+    formData.append('accesskey', API_ACCESS_KEY);
+    formData.append('get_orders', '1');
+    formData.append('user_id', userId.toString());
+
+    // Log form data
+    console.log('=== GET USER ORDERS ===');
+    console.log('Base URL:', API_BASE_URL);
+    console.log('Endpoint:', 'order-process.php');
+    console.log('User ID:', userId);
+    console.log('Access Key:', API_ACCESS_KEY);
+    console.log('Form Data:', {
+      accesskey: API_ACCESS_KEY,
+      get_orders: '1',
+      user_id: userId,
+    });
+
+    const response = await axios.post(
+      `${API_BASE_URL}order-process.php`,
+      formData,
+    );
+
+    console.log('=== GET ORDERS API RESPONSE ===');
+    console.log('Response Status:', response.status);
+    console.log('Response Headers:', response.headers);
+    console.log('Full Response Data:', response.data);
+
+    if (response.data && response.data.error === false) {
+      console.log('✅ Success: Orders fetched successfully');
+      const orders = response.data.data || [];
+      return {
+        success: true,
+        orders: orders,
+        message: response.data.message || 'Orders fetched successfully',
+      };
+    } else {
+      console.error('❌ Error: Get orders API returned error');
+      console.error('Error Message:', response.data.message);
+      return {
+        success: false,
+        orders: [],
+        message: response.data.message || 'Failed to fetch orders',
+      };
+    }
+  } catch (error) {
+    console.error('=== GET ORDERS API ERROR ===');
+    console.error('Error Type:', error.name);
+    console.error('Error Message:', error.message);
+    if (error.response) {
+      console.error('Response Status:', error.response.status);
+      console.error('Response Data:', error.response.data);
+    } else if (error.request) {
+      console.error('No Response Received:', error.request);
+    }
+    console.error('Full Error Object:', error);
+    return {
+      success: false,
+      orders: [],
+      message: 'Network error occurred',
+    };
+  }
+};

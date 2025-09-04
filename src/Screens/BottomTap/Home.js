@@ -279,6 +279,8 @@ const HomeScreen = () => {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ flexGrow: 1 }}
+        removeClippedSubviews={false}
+        scrollEventThrottle={16}
       >
         {/* Header */}
         <View style={styles.header}>
@@ -336,6 +338,8 @@ const HomeScreen = () => {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            removeClippedSubviews={false}
+            scrollEventThrottle={16}
             contentContainerStyle={{ paddingHorizontal: wp('1.2%') }}
           >
             {data.slider.map((item, index) => (

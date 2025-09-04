@@ -22,6 +22,12 @@ import Orders from './src/Screens/Orders';
 import Settings from './src/Screens/Settings';
 import Support from './src/Screens/Support';
 import About from './src/Screens/About';
+import Faq from './src/Screens/Faq';
+import TermsAndCondition from './src/Screens/TermsAndCondition';
+import PrivacyPolicy from './src/Screens/PrivacyPolicy';
+import MyOrders from './src/Screens/MyOrders';
+import Rating from './src/Screens/Rating';
+import OrderDatials from './src/Screens/OrderDatials';
 
 const Stack = createStackNavigator();
 
@@ -68,6 +74,12 @@ const App = () => {
         <Stack.Screen name="Settings" component={Settings} />
         <Stack.Screen name="Support" component={Support} />
         <Stack.Screen name="About" component={About} />
+        <Stack.Screen name="Faq" component={Faq} />
+        <Stack.Screen name="TermsAndCondition" component={TermsAndCondition} />
+        <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicy} />
+        <Stack.Screen name="MyOrders" component={MyOrders} />
+        <Stack.Screen name="Rating" component={Rating} />
+        <Stack.Screen name="OrderDatials" component={OrderDatials} />
       </Stack.Navigator>
     </NavigationContainer>
   );

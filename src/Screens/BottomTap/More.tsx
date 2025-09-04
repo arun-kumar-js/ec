@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   SafeAreaView,
   StyleSheet,
@@ -7,8 +7,14 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
+  RefreshControl,
+  Alert,
+  Share,
+  Linking,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getUserData, getWalletBalance } from '../../Fuctions/UserDataService';
 
 const ListItem = ({ icon, label, onPress }) => (
   <TouchableOpacity style={styles.listItem} onPress={onPress}>
@@ -17,44 +23,222 @@ const ListItem = ({ icon, label, onPress }) => (
   </TouchableOpacity>
 );
 
-const More = () => {
+const More = ({ navigation }) => {
+  const [user, setUser] = useState(null);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
   const menuItems = [
-    { icon: 'shopping-bag', label: 'My Orders' },
-    { icon: 'bell', label: 'Notifications' },
-    { icon: 'phone', label: 'Contact Us' },
-    { icon: 'info-circle', label: 'About Us' },
-    { icon: 'star-o', label: 'Rate Us' },
-    { icon: 'share-alt', label: 'Share App' },
-    { icon: 'users', label: 'Refer & Earn' },
-    { icon: 'question-circle-o', label: 'FAQ' },
-    { icon: 'file-text-o', label: 'Terms & Conditions' },
-    { icon: 'shield', label: 'Privacy Policy' },
-    { icon: 'sign-out', label: 'Log Out' },
+    {
+      icon: 'shopping-bag',
+      label: 'My Orders',
+      onPress: () => navigation.navigate('MyOrders'),
+    },
+    {
+      icon: 'bell',
+      label: 'Notifications',
+      onPress: () => {
+        Alert.alert('Notifications', 'No new notifications at the moment.');
+      },
+    },
+    {
+      icon: 'phone',
+      label: 'Contact Us',
+      onPress: () => navigation.navigate('Support'),
+    },
+    {
+      icon: 'info-circle',
+      label: 'About Us',
+      onPress: () => navigation.navigate('About'),
+    },
+    {
+      icon: 'star-o',
+      label: 'Rate Us',
+      onPress: () => navigation.navigate('Rating'),
+    },
+    {
+      icon: 'share-alt',
+      label: 'Share App',
+      onPress: () => handleShareApp(),
+    },
+    {
+      icon: 'users',
+      label: 'Refer & Earn',
+      onPress: () => {
+        Alert.alert(
+          'Refer & Earn',
+          'Refer friends and earn rewards! Feature coming soon.',
+        );
+      },
+    },
+    {
+      icon: 'question-circle-o',
+      label: 'FAQ',
+      onPress: () => navigation.navigate('Faq'),
+    },
+    {
+      icon: 'file-text-o',
+      label: 'Terms & Conditions',
+      onPress: () => navigation.navigate('TermsAndCondition'),
+    },
+    {
+      icon: 'shield',
+      label: 'Privacy Policy',
+      onPress: () => navigation.navigate('PrivacyPolicy'),
+    },
+    {
+      icon: 'sign-out',
+      label: 'Log Out',
+      onPress: () => handleLogout(),
+    },
   ];
+
+  const fetchUserData = async () => {
+    try {
+      setLoading(true);
+
+      // Get user data from AsyncStorage
+      const storedUser = await AsyncStorage.getItem('userData');
+      console.log('=== MORE PAGE: STORED USER DATA ===');
+      console.log('Raw stored user:', storedUser);
+
+      if (storedUser) {
+        const userObj = JSON.parse(storedUser);
+        console.log('Parsed user object:', userObj);
+        setUser(userObj);
+
+        // Get wallet balance from API
+        const userId = userObj.user_id || userObj.id;
+        console.log('User ID for wallet balance:', userId);
+
+        if (userId) {
+          const balanceResult = await getWalletBalance(userId);
+          console.log('Wallet balance result:', balanceResult);
+          if (balanceResult.success) {
+            setWalletBalance(balanceResult.balance);
+            console.log('Set wallet balance to:', balanceResult.balance);
+          }
+        }
+      } else {
+        console.log('No user data found in AsyncStorage');
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getInitials = name => {
+    if (!name) return 'U';
+    const names = name.trim().split(' ');
+    if (names.length === 1) {
+      return names[0].charAt(0).toUpperCase();
+    }
+    return (
+      names[0].charAt(0) + names[names.length - 1].charAt(0)
+    ).toUpperCase();
+  };
+
+  const handleShareApp = async () => {
+    try {
+      const result = await Share.share({
+        message:
+          'Check out this amazing shopping app! Download now and get the best deals.',
+        url: 'https://play.google.com/store', // Replace with your actual app store URL
+        title: 'Share EC Services App',
+      });
+
+      if (result.action === Share.sharedAction) {
+        console.log('App shared successfully');
+      }
+    } catch (error) {
+      console.error('Error sharing app:', error);
+      Alert.alert('Error', 'Unable to share app at the moment.');
+    }
+  };
+
+  const handleLogout = () => {
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            // Clear all user data from AsyncStorage
+            await AsyncStorage.multiRemove(['userData', 'userToken']);
+            console.log('User logged out successfully');
+
+            // Navigate to login screen
+            navigation.navigate('Login');
+          } catch (error) {
+            console.error('Error during logout:', error);
+            Alert.alert('Error', 'Unable to logout at the moment.');
+          }
+        },
+      },
+    ]);
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchUserData();
+    setRefreshing(false);
+  };
+
+  useEffect(() => {
+    fetchUserData();
+  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#EE2737" />
       <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#EE2737']}
+              tintColor="#EE2737"
+            />
+          }
+        >
           <View style={styles.header}>
             <View style={styles.profileContainer}>
               <View style={styles.avatar}>
-                <Text style={styles.avatarText}>VM</Text>
+                <Text style={styles.avatarText}>
+                  {getInitials(user?.name || 'User')}
+                </Text>
               </View>
               <View style={styles.profileInfo}>
-                <Text style={styles.profileName}>Veeramani</Text>
-                <Text style={styles.profilePhone}>9176123456</Text>
+                <Text style={styles.profileName}>
+                  {user?.name || 'Loading...'}
+                </Text>
+                <Text style={styles.profilePhone}>
+                  {user?.mobile || user?.phone || 'N/A'}
+                </Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.editProfileButton}>
+            <TouchableOpacity
+              style={styles.editProfileButton}
+              onPress={() => navigation.navigate('Profile')}
+            >
               <Text style={styles.editProfileButtonText}>Edit Profile</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.walletBalanceContainer}>
             <Text style={styles.walletBalanceText}>Wallet Balance</Text>
-            <Text style={styles.walletBalanceAmount}>₹ 0.00</Text>
+            <Text style={styles.walletBalanceAmount}>
+              {loading ? 'Loading...' : `₹ ${walletBalance.toFixed(2)}`}
+            </Text>
           </View>
 
           <View style={styles.listContainer}>
@@ -63,7 +247,7 @@ const More = () => {
                 key={index}
                 icon={item.icon}
                 label={item.label}
-                onPress={() => {}}
+                onPress={item.onPress}
               />
             ))}
           </View>
