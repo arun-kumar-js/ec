@@ -161,7 +161,12 @@ const PaymentScreen = ({ route }) => {
       }
     } catch (error) {
       console.error('Error launching BillPlz payment:', error);
-      Alert.alert('Error', 'Failed to launch payment. Please try again.');
+      // Navigate to PaymentFailure screen
+      navigation.navigate('PaymentFailure', {
+        errorMessage: 'Failed to launch payment. Please try again.',
+        orderId: orderData?.order_id,
+        amount: orderData?.amount,
+      });
       setSelectedPaymentMethod('');
     }
   };
@@ -264,20 +269,20 @@ const PaymentScreen = ({ route }) => {
           });
         }, 1000);
       } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Order Failed',
-          text2: result.data?.message || result.message || 'Failed to place order. Please try again.',
-          visibilityTime: 2000,
+        // Navigate to PaymentFailure screen
+        navigation.navigate('PaymentFailure', {
+          errorMessage: result.data?.message || result.message || 'Failed to place order. Please try again.',
+          orderId: orderData?.order_id,
+          amount: orderData?.amount,
         });
       }
     } catch (error) {
       console.error('Error processing BillPlz payment success:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'An error occurred while processing your payment. Please contact support.',
-        visibilityTime: 2000,
+      // Navigate to PaymentFailure screen
+      navigation.navigate('PaymentFailure', {
+        errorMessage: 'An error occurred while processing your payment. Please contact support.',
+        orderId: orderData?.order_id,
+        amount: orderData?.amount,
       });
     }
   };

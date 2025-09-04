@@ -171,30 +171,21 @@ const BillPlzWebView = ({ route, navigation }) => {
   const handlePaymentFailure = (message = 'Payment was cancelled') => {
     console.log('❌ BillPlz payment failed:', message);
     
-    Toast.show({
-      type: 'error',
-      text1: 'Payment Failed',
-      text2: message,
-      visibilityTime: 2000,
+    // Navigate to PaymentFailure screen with error details
+    navigation.replace('PaymentFailure', {
+      errorMessage: message,
+      orderId: orderData?.order_id,
+      amount: orderData?.amount,
     });
-
-    // Go back to payment screen after showing toast
-    setTimeout(() => {
-      navigation.goBack();
-    }, 1500);
   };
 
   const handleClose = () => {
-    Toast.show({
-      type: 'info',
-      text1: 'Payment Cancelled',
-      text2: 'Payment was cancelled by user',
-      visibilityTime: 1500,
+    // Navigate to PaymentFailure screen when user closes payment
+    navigation.replace('PaymentFailure', {
+      errorMessage: 'Payment was cancelled by user.',
+      orderId: orderData?.order_id,
+      amount: orderData?.amount,
     });
-    
-    setTimeout(() => {
-      navigation.goBack();
-    }, 1000);
   };
 
   if (loading) {

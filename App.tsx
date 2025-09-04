@@ -5,7 +5,7 @@ import 'react-native-gesture-handler';
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import BottomTap from './src/Navigation/BottomTap';
+import DrawerNavigator from './src/Navigation/DrawerNavigator';
 import AddressPage from './src/Screens/AddressPage';
 import AddAddress from './src/Screens/AddAddress';
 import SubCategory from './src/Screens/SubCategory';
@@ -29,6 +29,7 @@ import MyOrders from './src/Screens/MyOrders';
 import Rating from './src/Screens/Rating';
 import OrderDatials from './src/Screens/OrderDatials';
 import Search from './src/Search';
+import PaymentFailure from './src/Screens/PaymentFailure';
 
 const Stack = createStackNavigator();
 
@@ -42,7 +43,7 @@ const App = () => {
           gestureEnabled: false,
         }}
       >
-        <Stack.Screen name="MainApp" component={BottomTap} />
+        <Stack.Screen name="MainApp" component={DrawerNavigator} />
         <Stack.Screen
           name="AddressPage"
           component={AddressPage}
@@ -82,6 +83,7 @@ const App = () => {
         <Stack.Screen name="Rating" component={Rating} />
         <Stack.Screen name="OrderDatials" component={OrderDatials} />
         <Stack.Screen name="Search" component={Search} />
+        <Stack.Screen name="PaymentFailure" component={PaymentFailure} />
       </Stack.Navigator>
     </NavigationContainer>
   );

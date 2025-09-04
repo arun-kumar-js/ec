@@ -294,17 +294,20 @@ const styles = StyleSheet.create({
     color: '#EE2737',
     fontSize: 28,
     fontWeight: 'bold',
+    fontFamily: 'Montserrat-Bold',
   },
   profileInfo: {},
   profileName: {
     color: '#FFFFFF',
     fontSize: 22,
     fontWeight: 'bold',
+    fontFamily: 'Montserrat-Bold',
   },
   profilePhone: {
     color: '#FFFFFF',
     fontSize: 16,
     marginTop: 2,
+    fontFamily: 'Montserrat-Regular',
   },
   editProfileButton: {
     borderWidth: 1,
@@ -317,6 +320,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '500',
+    fontFamily: 'Montserrat-Medium',
   },
   walletBalanceContainer: {
     flexDirection: 'row',
@@ -331,11 +335,13 @@ const styles = StyleSheet.create({
   walletBalanceText: {
     fontSize: 17,
     color: '#EE2737',
+    fontFamily: 'Montserrat-Regular',
   },
   walletBalanceAmount: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#EE2737',
+    fontFamily: 'Montserrat-Bold',
   },
   listContainer: {
     backgroundColor: '#FFFFFF',
@@ -356,6 +362,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: '#333',
     marginLeft: 20,
+    fontFamily: 'Montserrat-Regular',
   },
   bottomNav: {
     position: 'absolute',
@@ -379,6 +386,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#888',
     marginTop: 4,
+    fontFamily: 'Montserrat-Regular',
   },
   activeTabLabel: {
     color: '#EE2737',

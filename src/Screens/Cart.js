@@ -312,6 +312,7 @@ const styles = StyleSheet.create({
     fontSize: wp('5.5%'),
     fontWeight: 'bold',
     marginBottom: hp('2%'),
+    fontFamily: 'Montserrat-Bold',
   },
   customHeader: {
     flexDirection: 'row',
@@ -368,7 +369,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   productName: {
-    fontFamily: 'Poppins',
+    fontFamily: 'Montserrat-SemiBold',
     fontSize: wp('4.5%'),
     fontWeight: '600',
     marginBottom: hp('1%'),
@@ -379,13 +380,13 @@ const styles = StyleSheet.create({
     marginBottom: hp('1%'),
   },
   rmText: {
-    fontFamily: 'Poppins',
+    fontFamily: 'Montserrat-Regular',
     fontSize: wp('3.5%'),
     color: 'green',
     marginRight: wp('1%'),
   },
   priceText: {
-    fontFamily: 'Poppins',
+    fontFamily: 'Montserrat-Bold',
     fontSize: wp('5%'),
     fontWeight: 'bold',
     color: 'green',
@@ -407,13 +408,13 @@ const styles = StyleSheet.create({
     borderRadius: wp('1%'),
   },
   qtyText: {
-    fontFamily: 'Poppins',
+    fontFamily: 'Montserrat-Bold',
     color: '#fff',
     fontSize: wp('4.5%'),
     fontWeight: 'bold',
   },
   qtyNumber: {
-    fontFamily: 'Poppins',
+    fontFamily: 'Montserrat-Regular',
     marginHorizontal: wp('3%'),
     fontSize: wp('4%'),
   },
@@ -432,9 +433,10 @@ const styles = StyleSheet.create({
     color: '#d32f2f',
     fontWeight: 'bold',
     fontSize: wp('4%'),
+    fontFamily: 'Montserrat-Bold',
   },
   emptyText: {
-    fontFamily: 'Poppins',
+    fontFamily: 'Montserrat-Regular',
     textAlign: 'center',
     color: '#888',
     fontSize: wp('4%'),
@@ -455,7 +457,7 @@ const styles = StyleSheet.create({
     right: 0,
   },
   footerText: {
-    fontFamily: 'Poppins',
+    fontFamily: 'Montserrat-Bold',
     color: 'white',
     fontSize: wp('4.5%'),
     fontWeight: 'bold',
@@ -474,6 +476,7 @@ const styles = StyleSheet.create({
     fontSize: wp('5%'),
     fontWeight: 'bold',
     color: '#333',
+    fontFamily: 'Montserrat-Bold',
   },
   checkoutFooter: {
     flexDirection: 'row',
@@ -498,13 +501,13 @@ const styles = StyleSheet.create({
     borderBottomColor: '#a7a4a4ff',
   },
   totalLabel: {
-    fontFamily: 'Poppins',
+    fontFamily: 'Montserrat-SemiBold',
     fontSize: 14,
     fontWeight: '600',
     color: '#333',
   },
   totalValue: {
-    fontFamily: 'Poppins',
+    fontFamily: 'Montserrat-Bold',
     fontSize: 14,
     fontWeight: 'bold',
     color: 'red',
@@ -535,6 +538,7 @@ const styles = StyleSheet.create({
     color: 'red',
     fontSize: wp('4%'),
     fontWeight: 'bold',
+    fontFamily: 'Montserrat-Bold',
   },
   modalOverlay: {
     flex: 1,

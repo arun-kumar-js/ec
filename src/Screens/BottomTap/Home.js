@@ -19,7 +19,6 @@ import {
 } from 'react-native-responsive-screen';
 import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
-import SimpleDrawer from '../../Navigation/SimpleDrawer';
 import { HOMEPAGE_ENDPOINT, API_ACCESS_KEY } from '../../config/config';
 import {
   updateCartItem,
@@ -38,7 +37,6 @@ const HomeScreen = () => {
   const [products, setProducts] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [cartItems, setCartItems] = useState({}); // Track cart items and their quantities
-  const [drawerVisible, setDrawerVisible] = useState(false);
   const promotion = data?.section;
 
   // Load cart data when component mounts
@@ -400,10 +398,7 @@ const HomeScreen = () => {
         <View style={styles.header}>
           <View style={{ flexDirection: 'row', gap: wp('3.5%') }}>
             <TouchableOpacity
-              onPress={() => {
-                console.log('Menu button pressed - opening drawer');
-                setDrawerVisible(true);
-              }}
+              onPress={() => navigation.openDrawer()}
               activeOpacity={1}
               style={{ padding: wp('2%') }}
             >
@@ -492,6 +487,7 @@ const HomeScreen = () => {
                   fontSize: wp('4%'),
                   fontWeight: '600',
                   marginBottom: hp('0.5%'),
+                  fontFamily: 'Montserrat-SemiBold',
                 }}
               >
                 {promo.title}
@@ -529,7 +525,7 @@ const HomeScreen = () => {
                           }}
                         />
                         <Text
-                          style={{ padding: wp('2%'), fontWeight: '500' }}
+                          style={{ padding: wp('2%'), fontWeight: '500', fontFamily: 'Montserrat-Medium' }}
                           numberOfLines={1}
                         >
                           {item.name}
@@ -547,6 +543,7 @@ const HomeScreen = () => {
                               color: '#888',
                               fontSize: wp('3%'),
                               flex: 1,
+                              fontFamily: 'Montserrat-Regular',
                             }}
                           >
                             1 Pc
@@ -557,6 +554,7 @@ const HomeScreen = () => {
                               fontWeight: 'bold',
                               fontSize: wp('3.5%'),
                               textAlign: 'right',
+                              fontFamily: 'Montserrat-Bold',
                             }}
                           >
                             RM{item?.variants?.[0]?.product_price || ''}
@@ -662,14 +660,6 @@ const HomeScreen = () => {
           )}
         </View>
       </ScrollView>
-      <SimpleDrawer
-        visible={drawerVisible}
-        onClose={() => {
-          console.log('Closing drawer');
-          setDrawerVisible(false);
-        }}
-        navigation={navigation}
-      />
     </SafeAreaView>
   );
 };
@@ -685,7 +675,7 @@ const styles = StyleSheet.create({
   },
   locationText: {
     color: '#fff',
-    fontFamily: 'Poppins',
+    fontFamily: 'Montserrat-Medium',
     fontWeight: '500',
     fontSize: wp('3.5%'),
     lineHeight: wp('5.1%'),
