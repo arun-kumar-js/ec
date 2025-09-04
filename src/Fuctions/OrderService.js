@@ -1,0 +1,169 @@
+import axios from 'axios';
+import { API_ACCESS_KEY, API_BASE_URL } from '../config/config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fetchCartItems } from './CartService';
+
+export const placeOrder = async orderData => {
+  try {
+    // Get cart items from local storage
+    const cartItems = await fetchCartItems();
+
+    // Extract product IDs and quantities
+    const productIds = cartItems.map(item => item.product_id || item.id);
+    const quantities = cartItems.map(item => item.quantity || 1);
+
+    // Get user data from AsyncStorage
+    const storedUser = await AsyncStorage.getItem('userData');
+    const user = storedUser ? JSON.parse(storedUser) : null;
+
+    // Prepare form data for order placement
+    const formData = new FormData();
+
+    // Basic order data
+    formData.append('accesskey', API_ACCESS_KEY);
+    formData.append('place_order', '1');
+    formData.append('user_id', user?.user_id || user?.id || '');
+    formData.append(
+      'email',
+      user?.email || orderData.selectedAddress?.email || '',
+    );
+    formData.append(
+      'mobile',
+      orderData.selectedAddress?.mobile || user?.mobile || '',
+    );
+
+    // Address data from selected address
+    formData.append('address', orderData.selectedAddress?.address || '');
+    formData.append(
+      'delivery_state',
+      orderData.selectedAddress?.state_id || '',
+    );
+    formData.append('delivery_city', orderData.selectedAddress?.city_id || '');
+
+    // Delivery details
+    formData.append(
+      'delivery_method',
+      orderData.deliveryMethod?.toLowerCase().replace(/\s+/g, '_') ||
+        'in_person_delivery',
+    );
+    formData.append(
+      'delivery_date',
+      orderData.selectedDate || new Date().toISOString().split('T')[0],
+    );
+    formData.append('delivery_time', orderData.selectedDeliveryTime || '');
+
+    // Payment details
+    formData.append('payment_method', orderData.selectedPaymentMethod || 'cod');
+    formData.append(
+      'wallet_used',
+      orderData.useWalletBalance ? 'true' : 'false',
+    );
+    formData.append(
+      'wallet_balance',
+      orderData.walletBalance?.toString() || '0.0',
+    );
+
+    // Cart data
+    formData.append('total_items', cartItems.length.toString());
+    formData.append('product_variant_id', JSON.stringify(productIds));
+    formData.append('quantity', JSON.stringify(quantities));
+
+    // Pricing details
+    formData.append('total', orderData.totals?.subtotal?.toString() || '0.00');
+    formData.append('tax_amount', orderData.totals?.tax?.toString() || '0.00');
+    formData.append(
+      'tax_percentage',
+      orderData.storeSettings?.tax?.toString() || '0.0',
+    );
+    formData.append(
+      'delivery_charge',
+      orderData.totals?.deliveryCharge?.toString() || '0.0',
+    );
+    formData.append(
+      'final_total',
+      orderData.totals?.total?.toString() || '0.00',
+    );
+
+    // Additional fields
+    formData.append('latitude', orderData.selectedAddress?.latitude || '0.0');
+    formData.append('longitude', orderData.selectedAddress?.longitude || '0.0');
+    formData.append('loyalty_Points', '0.0');
+    formData.append('loyalty_Points_used', 'false');
+
+    // Log form data for debugging
+    console.log('=== PLACE ORDER API ===');
+    console.log('Base URL:', API_BASE_URL);
+    console.log('Endpoint:', 'order-process.php');
+    console.log('User ID:', user?.user_id || user?.id);
+    console.log('Selected Address:', orderData.selectedAddress);
+    console.log('Cart Items:', cartItems);
+    console.log('Order Data:', orderData);
+    console.log('Form Data Keys:', {
+      accesskey: API_ACCESS_KEY,
+      place_order: '1',
+      user_id: user?.user_id || user?.id,
+      email: user?.email || orderData.selectedAddress?.email,
+      mobile: orderData.selectedAddress?.mobile || user?.mobile,
+      address: orderData.selectedAddress?.address,
+      delivery_method: orderData.deliveryMethod
+        ?.toLowerCase()
+        .replace(/\s+/g, '_'),
+      delivery_date:
+        orderData.selectedDate || new Date().toISOString().split('T')[0],
+      delivery_time: orderData.selectedDeliveryTime,
+      payment_method: orderData.selectedPaymentMethod,
+      wallet_used: orderData.useWalletBalance ? 'true' : 'false',
+      wallet_balance: orderData.walletBalance?.toString(),
+      total_items: cartItems.length.toString(),
+      product_variant_id: JSON.stringify(productIds),
+      quantity: JSON.stringify(quantities),
+      total: orderData.totals?.subtotal?.toString(),
+      tax_amount: orderData.totals?.tax?.toString(),
+      delivery_charge: orderData.totals?.deliveryCharge?.toString(),
+      final_total: orderData.totals?.total?.toString(),
+    });
+
+    const response = await axios.post(
+      `${API_BASE_URL}order-process.php`,
+      formData,
+    );
+
+    console.log('=== ORDER PLACEMENT API RESPONSE ===');
+    console.log('Response Status:', response.status);
+    console.log('Response Headers:', response.headers);
+    console.log('Full Response Data:', response.data);
+
+    if (response.data && response.data.error === false) {
+      console.log('✅ Success: Order placed successfully');
+      return {
+        success: true,
+        data: response.data,
+        orderId: response.data.order_id || response.data.id,
+      };
+    } else {
+      console.error('❌ Error: Order placement failed');
+      console.error('Error Message:', response.data.message);
+      return {
+        success: false,
+        data: null,
+        message: response.data.message || 'Order placement failed',
+      };
+    }
+  } catch (error) {
+    console.error('=== ORDER PLACEMENT API ERROR ===');
+    console.error('Error Type:', error.name);
+    console.error('Error Message:', error.message);
+    if (error.response) {
+      console.error('Response Status:', error.response.status);
+      console.error('Response Data:', error.response.data);
+    } else if (error.request) {
+      console.error('No Response Received:', error.request);
+    }
+    console.error('Full Error Object:', error);
+    return {
+      success: false,
+      data: null,
+      message: 'Network error occurred',
+    };
+  }
+};

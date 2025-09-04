@@ -17,11 +17,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { validatePromoCode } from '../Fuctions/PromoCodeService';
 import { getDeliveryMethods } from '../Fuctions/DeliveryMethodService';
 import { fetchCartItems } from '../Fuctions/CartService';
+import { getStoreSettings } from '../Fuctions/StoreSettingsService';
 
 const CheckOutScreen = ({ route }) => {
   const navigation = useNavigation();
   const [promoCode, setPromoCode] = useState('');
-  const [deliveryMethod, setDeliveryMethod] = useState('');
+  const [deliveryMethod, setDeliveryMethod] = useState('IN PERSON DELIVERY');
   const [showDeliveryOptions, setShowDeliveryOptions] = useState(false);
   const [promoApplied, setPromoApplied] = useState(false);
   const [promoDiscount, setPromoDiscount] = useState(0);
@@ -30,6 +31,10 @@ const CheckOutScreen = ({ route }) => {
   const [deliveryMethods, setDeliveryMethods] = useState({});
   const [availableDeliveryOptions, setAvailableDeliveryOptions] = useState([]);
   const [cartItems, setCartItems] = useState([]);
+  const [storeSettings, setStoreSettings] = useState({
+    tax: 8, // Default tax percentage
+    delivery_charge: 5, // Default delivery charge
+  });
 
   // Get selected address from route params
   const selectedAddress = route.params?.selectedAddress || {
@@ -46,9 +51,10 @@ const CheckOutScreen = ({ route }) => {
       );
       return sum + price * (item.quantity || 1);
     }, 0);
-    const tax = subtotal * 0.18; // 18% GST
+    const taxPercentage = parseFloat(storeSettings.tax) / 100; // Convert percentage to decimal
+    const tax = subtotal * taxPercentage;
     const taxableAmount = subtotal - tax;
-    const deliveryCharge = 0.0;
+    const deliveryCharge = parseFloat(storeSettings.delivery_charge) || 0;
     const total = subtotal + deliveryCharge - promoDiscount;
 
     return {
@@ -83,6 +89,15 @@ const CheckOutScreen = ({ route }) => {
         // Load cart items
         const cartData = await fetchCartItems();
         setCartItems(cartData);
+
+        // Load store settings
+        const settingsResult = await getStoreSettings();
+        if (settingsResult.success && settingsResult.data) {
+          setStoreSettings({
+            tax: settingsResult.data.tax || 8,
+            delivery_charge: settingsResult.data.delivery_charge || 5,
+          });
+        }
 
         // Load delivery methods
         const deliveryResult = await getDeliveryMethods();
@@ -125,6 +140,14 @@ const CheckOutScreen = ({ route }) => {
           }
 
           setAvailableDeliveryOptions(availableOptions);
+
+          // Set default delivery method if in_persion_delivery is available
+          if (deliveryResult.data.in_persion_delivery === '1') {
+            setDeliveryMethod('IN PERSON DELIVERY');
+          } else if (availableOptions.length > 0) {
+            // If in_persion_delivery is not available, set the first available option
+            setDeliveryMethod(availableOptions[0].name);
+          }
         }
       } catch (error) {
         console.error('Error loading data:', error);
@@ -171,13 +194,50 @@ const CheckOutScreen = ({ route }) => {
     }
   };
 
+  const handleConfirm = () => {
+    // Validate required fields
+    if (!deliveryMethod) {
+      Alert.alert('Error', 'Please select a delivery method');
+      return;
+    }
+
+    if (cartItems.length === 0) {
+      Alert.alert('Error', 'Your cart is empty');
+      return;
+    }
+
+    // Prepare checkout data to pass to next page
+    const checkoutData = {
+      selectedAddress,
+      cartItems,
+      totals: calculateTotals(),
+      deliveryMethod,
+      promoCode,
+      promoApplied,
+      promoDiscount,
+      storeSettings,
+      user,
+    };
+
+    console.log('=== CHECKOUT DATA ===');
+    console.log('Selected Address:', selectedAddress);
+    console.log('Cart Items:', cartItems);
+    console.log('Totals:', checkoutData.totals);
+    console.log('Delivery Method:', deliveryMethod);
+    console.log('Promo Code:', promoCode);
+    console.log('Store Settings:', storeSettings);
+
+    // Navigate to payment page with all checkout data
+    navigation.navigate('Payment', checkoutData);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar backgroundColor="#EF3340" barStyle="light-content" />
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={1}>
           <Icon name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Checkout</Text>
@@ -209,13 +269,21 @@ const CheckOutScreen = ({ route }) => {
         </View>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews={false}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={10}
+      >
         {/* Delivery Address Section */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Delivery Address</Text>
             <TouchableOpacity
               onPress={() => navigation.navigate('AddressPage')}
+              activeOpacity={1}
             >
               <Icon name="create-outline" size={20} color="#EF3340" />
             </TouchableOpacity>
@@ -236,7 +304,7 @@ const CheckOutScreen = ({ route }) => {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Have a Promo Code?</Text>
-            <TouchableOpacity>
+            <TouchableOpacity activeOpacity={1}>
               <Icon name="refresh-outline" size={20} color="#EF3340" />
             </TouchableOpacity>
           </View>
@@ -251,6 +319,7 @@ const CheckOutScreen = ({ route }) => {
             <TouchableOpacity
               style={styles.applyButton}
               onPress={handleApplyPromoCode}
+              activeOpacity={1}
             >
               <Text style={styles.applyButtonText}>Apply</Text>
             </TouchableOpacity>
@@ -266,6 +335,7 @@ const CheckOutScreen = ({ route }) => {
           <TouchableOpacity
             style={styles.deliverySelector}
             onPress={() => setShowDeliveryOptions(!showDeliveryOptions)}
+            activeOpacity={1}
           >
             <Text
               style={
@@ -287,6 +357,7 @@ const CheckOutScreen = ({ route }) => {
                     setDeliveryMethod(option.name);
                     setShowDeliveryOptions(false);
                   }}
+                  activeOpacity={1}
                 >
                   <Text style={styles.deliveryOptionText}>{option.name}</Text>
                   <Text style={styles.deliveryOptionPrice}>
@@ -339,7 +410,7 @@ const CheckOutScreen = ({ route }) => {
                     item.price?.replace('₹', '') || item.product_price || 0,
                   ) *
                   (item.quantity || 1) *
-                  0.18
+                  (parseFloat(storeSettings.tax) / 100)
                 ).toFixed(2)}
               </Text>
             </View>
@@ -354,7 +425,9 @@ const CheckOutScreen = ({ route }) => {
               </Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Tax</Text>
+              <Text style={styles.summaryLabel}>
+                Tax ({storeSettings.tax}%)
+              </Text>
               <Text style={styles.summaryValue}>
                 + ₹{totals.tax.toFixed(2)}
               </Text>
@@ -391,7 +464,11 @@ const CheckOutScreen = ({ route }) => {
             Total : ₹{totals.total.toFixed(2)}
           </Text>
         </View>
-        <TouchableOpacity style={styles.confirmButton}>
+        <TouchableOpacity
+          style={styles.confirmButton}
+          onPress={handleConfirm}
+          activeOpacity={1}
+        >
           <Text style={styles.confirmButtonText}>Confirm</Text>
           <Icon name="chevron-forward" size={20} color="white" />
         </TouchableOpacity>

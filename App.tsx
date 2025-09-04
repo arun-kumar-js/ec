@@ -12,6 +12,8 @@ import SubCategory from './src/Screens/SubCategory';
 import ProductDetails from './src/Screens/ProductDetails';
 import Cart from './src/Screens/Cart';
 import CheckOut from './src/Screens/CheckOut';
+import Payment from './src/Screens/Payment';
+import OrderConfirmed from './src/Screens/OrderConfirmed';
 import Login from './src/Screens/Login';
 import OtpScreen from './src/Screens/OtpScreen';
 import Profile from './src/Screens/Profile';
@@ -50,6 +52,8 @@ const App = () => {
         <Stack.Screen name="OtpScreen" component={OtpScreen} />
         <Stack.Screen name="Cart" component={Cart} />
         <Stack.Screen name="CheckOut" component={CheckOut} />
+        <Stack.Screen name="Payment" component={Payment} />
+        <Stack.Screen name="OrderConfirmed" component={OrderConfirmed} />
         <Stack.Screen name="Profile" component={Profile} />
         <Stack.Screen name="Orders" component={Orders} />
         <Stack.Screen name="Settings" component={Settings} />
