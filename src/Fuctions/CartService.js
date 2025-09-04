@@ -2,6 +2,7 @@ import {
   getCartItems,
   saveOrUpdateCartItem,
   removeCartItem,
+  clearCart as clearAllCartItems,
 } from '../DataBase/CartDB';
 import { emitCartUpdated } from './cartEvents';
 
@@ -112,6 +113,18 @@ export const removeProductFromCart = async product => {
     emitCartUpdated();
   } catch (error) {
     console.error('Error removing product from cart:', error);
+    throw error;
+  }
+};
+
+// Clear all cart items
+export const clearCart = async () => {
+  try {
+    await clearAllCartItems();
+    emitCartUpdated();
+    console.log('✅ Cart cleared successfully');
+  } catch (error) {
+    console.error('❌ Error clearing cart:', error);
     throw error;
   }
 };

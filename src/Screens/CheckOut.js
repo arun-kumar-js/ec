@@ -44,11 +44,21 @@ const CheckOutScreen = ({ route }) => {
     email: 'veeramani23@gmail.com',
   };
 
+  const getItemPrice = item => {
+    // Try different possible price fields
+    const price =
+      item.price?.replace('₹', '') ||
+      item.product_price ||
+      (item.product_variants && item.product_variants[0]?.product_price) ||
+      (item.variants && item.variants[0]?.product_price) ||
+      0;
+
+    return parseFloat(price) || 0;
+  };
+
   const calculateTotals = () => {
     const subtotal = cartItems.reduce((sum, item) => {
-      const price = parseFloat(
-        item.price?.replace('₹', '') || item.product_price || 0,
-      );
+      const price = getItemPrice(item);
       return sum + price * (item.quantity || 1);
     }, 0);
     const taxPercentage = parseFloat(storeSettings.tax) / 100; // Convert percentage to decimal
@@ -88,6 +98,12 @@ const CheckOutScreen = ({ route }) => {
 
         // Load cart items
         const cartData = await fetchCartItems();
+        console.log('=== CART DATA DEBUG ===');
+        console.log('Cart Items:', cartData);
+        if (cartData && cartData.length > 0) {
+          console.log('First item structure:', cartData[0]);
+          console.log('First item keys:', Object.keys(cartData[0]));
+        }
         setCartItems(cartData);
 
         // Load store settings
@@ -390,25 +406,15 @@ const CheckOutScreen = ({ route }) => {
               </Text>
               <Text style={styles.tableCell}>{item.quantity || 1}</Text>
               <Text style={styles.tableCell}>
-                ₹
-                {parseFloat(
-                  item.price?.replace('₹', '') || item.product_price || 0,
-                ).toFixed(2)}
+                ₹{getItemPrice(item).toFixed(2)}
+              </Text>
+              <Text style={styles.tableCell}>
+                ₹{(getItemPrice(item) * (item.quantity || 1)).toFixed(2)}
               </Text>
               <Text style={styles.tableCell}>
                 ₹
                 {(
-                  parseFloat(
-                    item.price?.replace('₹', '') || item.product_price || 0,
-                  ) * (item.quantity || 1)
-                ).toFixed(2)}
-              </Text>
-              <Text style={styles.tableCell}>
-                ₹
-                {(
-                  parseFloat(
-                    item.price?.replace('₹', '') || item.product_price || 0,
-                  ) *
+                  getItemPrice(item) *
                   (item.quantity || 1) *
                   (parseFloat(storeSettings.tax) / 100)
                 ).toFixed(2)}

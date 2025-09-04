@@ -1,6 +1,4 @@
-import React from 'react';
-
-
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,11 +7,89 @@ import {
   ScrollView,
   SafeAreaView,
   Image,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { clearCart } from '../Fuctions/CartService';
+import { placeOrder } from '../Fuctions/OrderService';
 
 const OrderConfirmed = ({ route, navigation }) => {
-  const { orderId, orderData } = route.params || {};
+  const { orderId, orderData, orderResult, paymentMethod, paymentSuccess } =
+    route.params || {};
+
+  // Handle BillPlz payment success
+  useEffect(() => {
+    const handleBillPlzPaymentSuccess = async () => {
+      if (paymentSuccess && paymentMethod === 'BillPlz' && orderData) {
+        try {
+          console.log('=== PROCESSING BILLPLZ PAYMENT SUCCESS ===');
+
+          // Show loading indicator
+          Alert.alert(
+            'Processing Order',
+            'Please wait while we process your order...',
+            [],
+            { cancelable: false },
+          );
+
+          // Create the actual order in your system
+          const finalOrderData = {
+            selectedAddress: orderData.selectedAddress,
+            deliveryMethod: orderData.deliveryMethod,
+            selectedDate: orderData.selectedDate,
+            selectedDeliveryTime: orderData.selectedDeliveryTime,
+            selectedPaymentMethod: 'billplz',
+            useWalletBalance: orderData.useWalletBalance || false,
+            walletBalance: orderData.walletBalance || 0,
+            totals: orderData.totals,
+            storeSettings: orderData.storeSettings,
+            deliveryNotes: orderData.deliveryNotes,
+            user: orderData.user,
+            paymentStatus: 'paid',
+          };
+
+          // Call order placement API
+          const result = await placeOrder(finalOrderData);
+          console.log('=== ORDER PLACEMENT RESULT ===');
+          console.log('Result:', result);
+
+          if (
+            result.data &&
+            (result.data.error === false || result.data.error === 'false')
+          ) {
+            // Clear cart data from SQLite storage
+            try {
+              await clearCart();
+              console.log('✅ Cart cleared successfully');
+            } catch (error) {
+              console.error('❌ Error clearing cart:', error);
+            }
+
+            // Update the route params with the actual order result
+            route.params.orderId = result.data?.order_id || 'N/A';
+            route.params.orderResult = result.data;
+          } else {
+            Alert.alert(
+              'Order Failed',
+              result.data?.message ||
+                result.message ||
+                'Failed to place order. Please try again.',
+              [{ text: 'OK' }],
+            );
+          }
+        } catch (error) {
+          console.error('Error processing BillPlz payment success:', error);
+          Alert.alert(
+            'Error',
+            'An error occurred while processing your payment. Please contact support.',
+            [{ text: 'OK' }],
+          );
+        }
+      }
+    };
+
+    handleBillPlzPaymentSuccess();
+  }, [paymentSuccess, paymentMethod, orderData]);
 
   const handleContinueShopping = () => {
     navigation.navigate('MainApp');

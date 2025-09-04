@@ -17,6 +17,8 @@ import { useNavigation } from '@react-navigation/native';
 import { getTimeSlots } from '../Fuctions/TimeSlotService';
 import { getWalletBalance } from '../Fuctions/UserDataService';
 import { placeOrder } from '../Fuctions/OrderService';
+import { clearCart } from '../Fuctions/CartService';
+import { createBillPlzBill, testBillPlzAPI } from '../Fuctions/BillPlzService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PaymentScreen = ({ route }) => {
@@ -109,11 +111,113 @@ const PaymentScreen = ({ route }) => {
 
   const paymentMethods = [
     { id: 'cod', name: 'CASH ON DELIVERY', icon: 'cash-outline' },
-    { id: 'upi', name: 'BILL PLZ', icon: 'phone-portrait-outline' },
+    { id: 'billplz', name: 'BILL PLZ', icon: 'phone-portrait-outline' },
   ];
 
   const handlePaymentMethodSelect = methodId => {
     setSelectedPaymentMethod(methodId);
+  };
+
+  const handleBillPlzPayment = async () => {
+    try {
+      // Prepare order data for BillPlz
+      const orderData = {
+        orderId: `ORDER_${Date.now()}`, // Generate temporary order ID
+        user: user,
+        selectedAddress: checkoutData.selectedAddress,
+        totals: checkoutData.totals,
+        deliveryMethod: checkoutData.deliveryMethod,
+        selectedDate: selectedDate,
+        selectedDeliveryTime: selectedDeliveryTime,
+        deliveryNotes: deliveryNotes,
+        storeSettings: checkoutData.storeSettings,
+      };
+
+      console.log('=== LAUNCHING BILLPLZ PAYMENT ===');
+      console.log('Order Data:', orderData);
+
+      // Navigate to BillPlz WebView
+      navigation.navigate('BillPlzWebView', {
+        orderData: orderData,
+        returnToPayment: true, // Flag to indicate we should return to payment screen
+      });
+    } catch (error) {
+      console.error('Error launching BillPlz payment:', error);
+      Alert.alert('Error', 'Failed to launch payment. Please try again.');
+      setSelectedPaymentMethod('');
+    }
+  };
+
+  const handleBillPlzPaymentSuccess = async orderData => {
+    try {
+      console.log('=== BILLPLZ PAYMENT SUCCESS ===');
+      console.log('Processing successful payment...');
+
+      // Show loading indicator
+      Alert.alert(
+        'Processing Order',
+        'Please wait while we process your order...',
+        [],
+        { cancelable: false },
+      );
+
+      // Create the actual order in your system
+      const finalOrderData = {
+        selectedAddress: orderData.selectedAddress,
+        deliveryMethod: orderData.deliveryMethod,
+        selectedDate: orderData.selectedDate,
+        selectedDeliveryTime: orderData.selectedDeliveryTime,
+        selectedPaymentMethod: 'billplz', // Mark as BillPlz payment
+        useWalletBalance: useWalletBalance,
+        walletBalance: walletBalance,
+        totals: orderData.totals,
+        storeSettings: orderData.storeSettings,
+        deliveryNotes: orderData.deliveryNotes,
+        user: orderData.user,
+        paymentStatus: 'paid', // Mark as paid
+      };
+
+      // Call order placement API
+      const result = await placeOrder(finalOrderData);
+      console.log('=== ORDER PLACEMENT RESULT ===');
+      console.log('Result:', result);
+
+      if (
+        result.data &&
+        (result.data.error === false || result.data.error === 'false')
+      ) {
+        // Clear cart data from SQLite storage
+        try {
+          await clearCart();
+          console.log('✅ Cart cleared successfully');
+        } catch (error) {
+          console.error('❌ Error clearing cart:', error);
+        }
+
+        // Navigate to order confirmation
+        navigation.replace('OrderConfirmed', {
+          orderId: result.data?.order_id || 'N/A',
+          orderData: finalOrderData,
+          orderResult: result.data,
+          paymentMethod: 'BillPlz',
+        });
+      } else {
+        Alert.alert(
+          'Order Failed',
+          result.data?.message ||
+            result.message ||
+            'Failed to place order. Please try again.',
+          [{ text: 'OK' }],
+        );
+      }
+    } catch (error) {
+      console.error('Error processing BillPlz payment success:', error);
+      Alert.alert(
+        'Error',
+        'An error occurred while processing your payment. Please contact support.',
+        [{ text: 'OK' }],
+      );
+    }
   };
 
   // Calculate remaining amount when wallet balance or useWalletBalance changes
@@ -158,7 +262,7 @@ const PaymentScreen = ({ route }) => {
       return;
     }
 
-    // Show confirmation modal instead of making API call directly
+    // Show confirmation modal for all payment methods
     setShowConfirmationModal(true);
   };
 
@@ -166,7 +270,13 @@ const PaymentScreen = ({ route }) => {
     // Close the modal
     setShowConfirmationModal(false);
 
-    // Show loading indicator
+    // Handle BillPlz payment differently
+    if (selectedPaymentMethod === 'billplz') {
+      handleBillPlzPayment();
+      return;
+    }
+
+    // Show loading indicator for COD payments
     Alert.alert(
       'Processing Order',
       'Please wait while we process your order...',
@@ -192,27 +302,40 @@ const PaymentScreen = ({ route }) => {
 
       // Call order placement API
       const result = await placeOrder(orderData);
+      console.log('=== FULL API RESPONSE ===');
+      console.log('Result:', result);
+      console.log('Result Type:', typeof result);
+      console.log('Result Keys:', Object.keys(result));
+      console.log('Error Value:', result.error);
+      console.log('Error Type:', typeof result.error);
+      console.log('Message:', result.message);
+      console.log('Order ID:', result.order_id);
+      console.log('Full Response Data:', result);
 
-      if (result.success) {
-        // Show success toast
-        Alert.alert(
-          'Payment Success!',
-          'Order placed successfully. Please wait...',
-          [],
-          { cancelable: false },
-        );
+      if (
+        result.data &&
+        (result.data.error === false || result.data.error === 'false')
+      ) {
+        // Clear cart data from SQLite storage
+        try {
+          await clearCart();
+          console.log('✅ Cart cleared successfully');
+        } catch (error) {
+          console.error('❌ Error clearing cart:', error);
+        }
 
-        // Wait 1 second then navigate to order confirmation
-        setTimeout(() => {
-          navigation.navigate('OrderConfirmed', {
-            orderId: result.orderId || 'N/A',
-            orderData: orderData,
-          });
-        }, 1000);
+        // Navigate directly to order confirmation with result data (replace current screen)
+        navigation.replace('OrderConfirmed', {
+          orderId: result.data?.order_id || 'N/A',
+          orderData: orderData,
+          orderResult: result.data,
+        });
       } else {
         Alert.alert(
           'Order Failed',
-          result.message || 'Failed to place order. Please try again.',
+          result.data?.message ||
+            result.message ||
+            'Failed to place order. Please try again.',
           [{ text: 'OK' }],
         );
       }
@@ -223,6 +346,18 @@ const PaymentScreen = ({ route }) => {
         'An error occurred while placing your order. Please try again.',
         [{ text: 'OK' }],
       );
+    }
+  };
+
+  const handleTestBillPlzAPI = async () => {
+    try {
+      console.log('=== TESTING BILLPLZ API FROM PAYMENT SCREEN ===');
+      const result = await testBillPlzAPI();
+      console.log('Test result:', result);
+      Alert.alert('Test Complete', 'Check console for detailed results');
+    } catch (error) {
+      console.error('Test failed:', error);
+      Alert.alert('Test Failed', 'Check console for error details');
     }
   };
 
@@ -272,10 +407,7 @@ const PaymentScreen = ({ route }) => {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={() => navigation.goBack()}
-          activeOpacity={1}
-        >
+        <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={1}>
           <Icon name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Payment</Text>
@@ -307,7 +439,11 @@ const PaymentScreen = ({ route }) => {
         </View>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.contentContainer}
+      >
         {/* Wallet Balance */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
@@ -437,6 +573,17 @@ const PaymentScreen = ({ route }) => {
               </TouchableOpacity>
             ))}
         </View>
+
+        {/* Test BillPlz API Button */}
+        <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.testButton}
+            onPress={handleTestBillPlzAPI}
+            activeOpacity={1}
+          >
+            <Text style={styles.testButtonText}>Test BillPlz API</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       {/* Bottom Navigation */}
@@ -461,12 +608,7 @@ const PaymentScreen = ({ route }) => {
       </View>
 
       {/* Calendar Modal */}
-      <Modal
-        visible={showCalendar}
-        transparent={true}
-        animationType="none"
-        onRequestClose={() => setShowCalendar(false)}
-      >
+      {showCalendar && (
         <View style={styles.modalOverlay}>
           <View style={styles.calendarModal}>
             <View style={styles.calendarHeader}>
@@ -504,6 +646,7 @@ const PaymentScreen = ({ route }) => {
                       handleDateSelect(dayObj.date)
                     }
                     disabled={dayObj.disabled}
+                    activeOpacity={1}
                   >
                     <Text
                       style={[
@@ -520,27 +663,38 @@ const PaymentScreen = ({ route }) => {
             </View>
           </View>
         </View>
-      </Modal>
+      )}
 
       {/* Order Confirmation Modal */}
-      <Modal
-        visible={showConfirmationModal}
-        transparent={true}
-        animationType="none"
-        onRequestClose={() => setShowConfirmationModal(false)}
-      >
+      {showConfirmationModal && (
         <View style={styles.modalOverlay}>
           <View style={styles.confirmationModal}>
             <View style={styles.confirmationHeader}>
-              <Text style={styles.confirmationTitle}>Confirm Order Amount</Text>
+              <Text style={styles.confirmationTitle}>Confirm Order</Text>
               <View style={styles.confirmationDivider} />
             </View>
 
             <View style={styles.confirmationContent}>
+              <View style={styles.paymentMethodRow}>
+                <Text style={styles.paymentMethodLabel}>Payment Method:</Text>
+                <Text style={styles.paymentMethodValue}>
+                  {selectedPaymentMethod === 'cod'
+                    ? 'CASH ON DELIVERY'
+                    : 'BILL PLZ'}
+                </Text>
+              </View>
+
               <View style={styles.orderSummaryRow}>
                 <Text style={styles.summaryLabel}>Items Amount</Text>
                 <Text style={styles.summaryValue}>
-                  ₹{checkoutData.totals?.subtotal?.toFixed(2) || '0.00'}
+                  ₹
+                  {checkoutData.totals?.taxable_amount?.toFixed(2) ||
+                    (checkoutData.totals?.subtotal && checkoutData.totals?.tax
+                      ? (
+                          checkoutData.totals.subtotal - checkoutData.totals.tax
+                        ).toFixed(2)
+                      : checkoutData.totals?.subtotal?.toFixed(2)) ||
+                    '0.00'}
                 </Text>
               </View>
 
@@ -577,19 +731,21 @@ const PaymentScreen = ({ route }) => {
               <TouchableOpacity
                 style={styles.cancelButton}
                 onPress={() => setShowConfirmationModal(false)}
+                activeOpacity={1}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.confirmButton}
                 onPress={handleConfirmOrder}
+                activeOpacity={1}
               >
                 <Text style={styles.confirmButtonText}>Confirm</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
-      </Modal>
+      )}
     </SafeAreaView>
   );
 };
@@ -668,6 +824,10 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
+    removeClippedSubviews: false,
+  },
+  contentContainer: {
+    paddingBottom: 20,
   },
   card: {
     backgroundColor: 'white',
@@ -810,10 +970,15 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   modalOverlay: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1000,
   },
   calendarModal: {
     backgroundColor: 'white',
@@ -1053,6 +1218,27 @@ const styles = StyleSheet.create({
   confirmationContent: {
     marginBottom: 20,
   },
+  paymentMethodRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    marginBottom: 12,
+    backgroundColor: '#f8f8f8',
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  paymentMethodLabel: {
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'Montserrat',
+  },
+  paymentMethodValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#EF3340',
+    fontFamily: 'Montserrat',
+  },
   orderSummaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1119,6 +1305,18 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     fontSize: 16,
     color: 'white',
+    fontWeight: 'bold',
+    fontFamily: 'Montserrat',
+  },
+  testButton: {
+    backgroundColor: '#28a745',
+    paddingVertical: 12,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  testButtonText: {
+    color: 'white',
+    fontSize: 16,
     fontWeight: 'bold',
     fontFamily: 'Montserrat',
   },

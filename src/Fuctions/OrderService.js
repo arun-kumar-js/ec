@@ -132,8 +132,21 @@ export const placeOrder = async orderData => {
     console.log('Response Status:', response.status);
     console.log('Response Headers:', response.headers);
     console.log('Full Response Data:', response.data);
+    console.log('Response Data Type:', typeof response.data);
+    console.log('Response Data Keys:', Object.keys(response.data));
+    console.log('Error Field:', response.data.error);
+    console.log('Error Field Type:', typeof response.data.error);
+    console.log('Message Field:', response.data.message);
+    console.log('Order ID Field:', response.data.order_id);
+    console.log(
+      'Complete Response JSON:',
+      JSON.stringify(response.data, null, 2),
+    );
 
-    if (response.data && response.data.error === false) {
+    if (
+      response.data &&
+      (response.data.error === false || response.data.error === 'false')
+    ) {
       console.log('✅ Success: Order placed successfully');
       return {
         success: true,

@@ -11,10 +11,7 @@ import {
   ScrollView,
   Dimensions,
   Animated,
-  PanGestureHandler,
-  State,
 } from 'react-native';
-import { PanGestureHandler as RNGHPanGestureHandler } from 'react-native-gesture-handler';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -23,7 +20,6 @@ const SimpleDrawer = ({ visible, onClose, navigation }) => {
   const slideAnim = React.useRef(
     new Animated.Value(-screenWidth * 0.6),
   ).current;
-  const gestureAnim = React.useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const loadUser = async () => {
@@ -40,43 +36,23 @@ const SimpleDrawer = ({ visible, onClose, navigation }) => {
   }, []);
 
   React.useEffect(() => {
+    console.log('SimpleDrawer visible changed:', visible);
     if (visible) {
+      console.log('Opening drawer animation');
       Animated.timing(slideAnim, {
         toValue: 0,
-        duration: 500,
-        useNativeDriver: true,
+        duration: 300,
+        useNativeDriver: false, // Changed to false to avoid animation issues
       }).start();
     } else {
+      console.log('Closing drawer animation');
       Animated.timing(slideAnim, {
         toValue: -screenWidth * 0.6,
-        duration: 500,
-        useNativeDriver: true,
+        duration: 300,
+        useNativeDriver: false, // Changed to false to avoid animation issues
       }).start();
     }
   }, [visible, slideAnim]);
-
-  const onGestureEvent = Animated.event(
-    [{ nativeEvent: { translationX: gestureAnim } }],
-    { useNativeDriver: true },
-  );
-
-  const onHandlerStateChange = event => {
-    if (event.nativeEvent.state === State.END) {
-      const { translationX } = event.nativeEvent;
-
-      if (translationX < -50) {
-        // Swipe left - close drawer
-        onClose();
-      } else {
-        // Snap back to open position - use fast animation
-        Animated.timing(gestureAnim, {
-          toValue: 0,
-          duration: 150,
-          useNativeDriver: true,
-        }).start();
-      }
-    }
-  };
 
   const menuItems = [
     {
@@ -179,102 +155,94 @@ const SimpleDrawer = ({ visible, onClose, navigation }) => {
         onPress={onClose}
         activeOpacity={1}
       >
-        <RNGHPanGestureHandler
-          onGestureEvent={onGestureEvent}
-          onHandlerStateChange={onHandlerStateChange}
+        <Animated.View
+          style={[
+            styles.drawerContainer,
+            {
+              transform: [{ translateX: slideAnim }],
+            },
+          ]}
         >
-          <Animated.View
-            style={[
-              styles.drawerContainer,
-              {
-                transform: [
-                  { translateX: slideAnim },
-                  { translateX: gestureAnim },
-                ],
-              },
-            ]}
+          <TouchableOpacity
+            style={styles.drawerContent}
+            onPress={() => {}} // Prevent closing when tapping inside drawer
+            activeOpacity={1}
           >
-            <TouchableOpacity
-              style={styles.drawerContent}
-              onPress={() => {}} // Prevent closing when tapping inside drawer
-              activeOpacity={1}
-            >
-              <View style={styles.header}>
-                {user ? (
-                  <View style={{ alignItems: 'center' }}>
-                    <Image
-                      source={require('../Assets/Images/logo.png')}
-                      style={styles.logo}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.loginText}>{user.name || 'User'}</Text>
-                    <Text style={styles.phoneText}>{user.mobile || ''}</Text>
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    onPress={() => {
-                      onClose();
-                      navigation.navigate('Login');
-                    }}
-                  >
-                    <Text style={styles.loginText}>Login ?</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              <ScrollView style={styles.drawerList}>
-                {menuItems.map((item, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={styles.menuItem}
-                    onPress={item.onPress}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.menuItemContent}>
-                      <Image source={item.icon} style={styles.menuIcon} />
-                      <Text style={styles.menuItemText}>{item.label}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-
+            <View style={styles.header}>
+              {user ? (
+                <View style={{ alignItems: 'center' }}>
+                  <Image
+                    source={require('../Assets/Images/logo.png')}
+                    style={styles.logo}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.loginText}>{user.name || 'User'}</Text>
+                  <Text style={styles.phoneText}>{user.mobile || ''}</Text>
+                </View>
+              ) : (
                 <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={async () => {
-                    await AsyncStorage.removeItem('userData');
-                    onClose();
-                    navigation.replace('Login');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.menuItemText}>Logout</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.menuItem}
                   onPress={() => {
-                    Alert.alert(
-                      'Delete Account',
-                      'Are you sure you want to delete your account?',
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                          text: 'Yes',
-                          onPress: () =>
-                            console.log('Delete account API call here'),
-                        },
-                      ],
-                    );
+                    onClose();
+                    navigation.navigate('Login');
                   }}
+                >
+                  <Text style={styles.loginText}>Login ?</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <ScrollView style={styles.drawerList}>
+              {menuItems.map((item, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.menuItem}
+                  onPress={item.onPress}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.menuItemText, { color: 'red' }]}>
-                    Delete Account
-                  </Text>
+                  <View style={styles.menuItemContent}>
+                    <Image source={item.icon} style={styles.menuIcon} />
+                    <Text style={styles.menuItemText}>{item.label}</Text>
+                  </View>
                 </TouchableOpacity>
-              </ScrollView>
-            </TouchableOpacity>
-          </Animated.View>
-        </RNGHPanGestureHandler>
+              ))}
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={async () => {
+                  await AsyncStorage.removeItem('userData');
+                  onClose();
+                  navigation.replace('Login');
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.menuItemText}>Logout</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  Alert.alert(
+                    'Delete Account',
+                    'Are you sure you want to delete your account?',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Yes',
+                        onPress: () =>
+                          console.log('Delete account API call here'),
+                      },
+                    ],
+                  );
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.menuItemText, { color: 'red' }]}>
+                  Delete Account
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </TouchableOpacity>
+        </Animated.View>
       </TouchableOpacity>
     </Modal>
   );

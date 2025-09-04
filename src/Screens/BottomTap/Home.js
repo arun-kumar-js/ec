@@ -21,6 +21,11 @@ import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
 import SimpleDrawer from '../../Navigation/SimpleDrawer';
 import { HOMEPAGE_ENDPOINT, API_ACCESS_KEY } from '../../config/config';
+import {
+  updateCartItem,
+  getProductQuantity,
+  fetchCartItems,
+} from '../../Fuctions/CartService';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -34,36 +39,78 @@ const HomeScreen = () => {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const promotion = data?.section;
 
+  // Load cart data when component mounts
+  useEffect(() => {
+    loadCartData();
+  }, []);
+
+  const loadCartData = async () => {
+    try {
+      const cartItems = await fetchCartItems();
+      const cartState = {};
+      cartItems.forEach(item => {
+        const itemId = item.id || item.product_id;
+        cartState[itemId] = item.quantity || 0;
+      });
+      setCartItems(cartState);
+    } catch (error) {
+      console.error('Error loading cart data:', error);
+    }
+  };
+
   // Cart functions
-  const addToCart = item => {
-    const itemId = item.id || item.product_id;
-    setCartItems(prev => ({
-      ...prev,
-      [itemId]: (prev[itemId] || 0) + 1,
-    }));
+  const addToCart = async item => {
+    try {
+      const currentQuantity = await getProductQuantity(
+        item.id || item.product_id,
+      );
+      await updateCartItem(item, currentQuantity + 1);
+      // Update local state to reflect the change
+      setCartItems(prev => ({
+        ...prev,
+        [item.id || item.product_id]: currentQuantity + 1,
+      }));
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+    }
   };
 
-  const removeFromCart = item => {
-    const itemId = item.id || item.product_id;
-    setCartItems(prev => {
-      const newItems = { ...prev };
-      if (newItems[itemId] > 1) {
-        newItems[itemId] -= 1;
+  const removeFromCart = async item => {
+    try {
+      const currentQuantity = await getProductQuantity(
+        item.id || item.product_id,
+      );
+      if (currentQuantity > 1) {
+        await updateCartItem(item, currentQuantity - 1);
+        setCartItems(prev => ({
+          ...prev,
+          [item.id || item.product_id]: currentQuantity - 1,
+        }));
       } else {
-        delete newItems[itemId];
+        // If quantity is 1, keep it at 1 (don't allow going to 0)
+        setCartItems(prev => ({
+          ...prev,
+          [item.id || item.product_id]: 1,
+        }));
       }
-      return newItems;
-    });
+    } catch (error) {
+      console.error('Error removing from cart:', error);
+    }
   };
 
-  const getItemQuantity = item => {
-    const itemId = item.id || item.product_id;
-    return cartItems[itemId] || 0;
+  const getItemQuantity = async item => {
+    try {
+      const quantity = await getProductQuantity(item.id || item.product_id);
+      return quantity;
+    } catch (error) {
+      console.error('Error getting item quantity:', error);
+      return 0;
+    }
   };
 
   // Cart Button Component
   const CartButton = ({ item }) => {
-    const quantity = getItemQuantity(item);
+    const quantity = cartItems[item.id || item.product_id] || 0;
 
     if (quantity === 0) {
       return (
@@ -238,6 +285,7 @@ const HomeScreen = () => {
           <View style={{ flexDirection: 'row', gap: wp('3.5%') }}>
             <TouchableOpacity
               onPress={() => {
+                console.log('Menu button pressed - opening drawer');
                 setDrawerVisible(true);
               }}
               activeOpacity={1}
